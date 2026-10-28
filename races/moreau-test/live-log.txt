@@ -1,0 +1,1 @@
+# Fictional test log. Add report lines from test-script.md.

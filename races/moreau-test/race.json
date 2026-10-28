@@ -1,0 +1,18 @@
+{
+  "race_id": "moreau-local-test",
+  "name": "Moreau Half · Local test",
+  "test_mode": true,
+  "date": "2026-10-31",
+  "timezone": "America/New_York",
+  "start_time": "2026-10-31T09:00:00-04:00",
+  "clock_mode": "latest_report",
+  "course_file": "../moreau-2026/course.json",
+  "roster": [
+    {"bib": "101", "name": "Alex Demo"},
+    {"bib": "102", "name": "Blair Demo"},
+    {"bib": "103", "name": "Casey Demo"},
+    {"bib": "104", "name": "Devon Demo"},
+    {"bib": "105", "name": "Emery Demo"},
+    {"bib": "106", "name": "Finley Demo"}
+  ]
+}

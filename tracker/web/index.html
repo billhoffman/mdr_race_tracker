@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Mountain Dog · Race tracker</title><link rel="stylesheet" href="/style.css"></head>
+<body>
+<header><div><div class="eyebrow">MOUNTAIN DOG RUNNING <span id="mode">LOCAL TEST</span></div><h1 id="race-name">Checkpoint tracker</h1><p id="clock-note">Loading race configuration…</p></div><div class="clock-box"><small>RACE CLOCK</small><strong id="clock">00:00:00</strong></div></header>
+<div id="connection" role="status">Connecting to local service…</div>
+<main>
+<section class="counts" aria-label="Runner counts"><div><strong id="roster-count">—</strong><span>On roster</span></div><div><strong id="on-course">—</strong><span>On course</span></div><div><strong id="finished">—</strong><span>Finished</span></div><div><strong id="withdrawn">—</strong><span>Withdrawn</span></div></section>
+<div class="layout"><section class="panel map-panel"><div class="panel-heading"><div><h2>Course &amp; last confirmed locations</h2><p>Markers move only when a checkpoint passage is recorded.</p></div><span class="aid-key">■ Aid station</span></div><svg id="course-map" viewBox="0 0 1000 580" role="img" aria-label="Race course, checkpoints and last confirmed runner locations"></svg><div id="course-note" class="map-footer"></div></section>
+<aside class="panel"><h2>Latest activity</h2><p>New entries and corrections, in receipt order.</p><ol id="activity"></ol><a href="/api/audit" target="_blank" rel="noopener">Open full audit log ↗</a></aside></div>
+<section class="panel"><div class="panel-heading"><div><h2>Runner progress</h2><p>Finish places are provisional. Select a runner to highlight their confirmed location.</p></div><label>Find runner <input id="search" type="search" placeholder="Bib or name"></label></div><div class="table-scroll"><table><thead><tr><th>Bib / runner</th><th>Status</th><th>Last checkpoint</th><th>Passage time</th><th>Since report*</th><th>Finish elapsed</th></tr></thead><tbody id="runners"></tbody></table></div><p class="footnote">*Relative to the displayed race clock. No report is not evidence that a runner has started or is missing.</p></section>
+<section class="panel review"><h2>Reports needing attention <span id="issue-count">0</span></h2><p>A malformed correction leaves the prior valid report in place. Fix the original entry or explicitly void it.</p><ul id="issues"></ul></section>
+<details class="panel"><summary>Test instructions &amp; log format</summary><p>Enter one report per paragraph in the Google Doc or local log. Keep each ID unique. Edit a report using the same ID to correct it.</p><pre>T001 | 09:10 | A | 101 | PASS
+T002 | 09:12 | A | 102,103 | PASS
+T003 | 09:30 | A | 102 | WITHDRAWN
+T004 | 11:00 | FINISH | 101 | FINISH</pre><p>To retract a report, replace its line with <code>T004 | VOID</code>. Deleting a line alone does not retract an accepted report. Lines beginning with # are comments.</p><p>The test clock follows the latest valid report. The browser checks for updates every three seconds; the document is read every fifteen seconds.</p></details>
+</main><footer>Checkpoint-based tracking · Moreau fictional test race · Source data and corrections retained locally</footer>
+<script src="/app.js"></script></body></html>

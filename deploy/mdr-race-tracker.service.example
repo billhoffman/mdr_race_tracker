@@ -1,0 +1,18 @@
+[Unit]
+Description=Mountain Dog Running checkpoint tracker
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Create this dedicated user and directories first; adjust paths for your host.
+User=racetracker
+WorkingDirectory=/opt/mdr_race_tracker
+EnvironmentFile=/etc/mdr-race-tracker.env
+ExecStart=/usr/bin/python3 -m tracker.server --source google --database /var/lib/mdr-race-tracker/moreau-test.sqlite3 --public
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=20
+
+[Install]
+WantedBy=multi-user.target
