@@ -72,6 +72,11 @@ whenever the publisher runs. Runners initially show **Not reported**.
 
 ## 4. Prepare the real race configuration
 
+**Do this later, once the actual start time is confirmed.** There is no need to
+run setup today. The existing fictional test website and cron job can keep running
+unchanged while you wait. You can also upload/import the roster separately when
+it becomes available.
+
 Run the guided setup on DreamHost:
 
 ```sh
@@ -89,6 +94,11 @@ New York timezone and writes `races/moreau-2026/race.local.json`. No Python code
 JSON editing or timezone-offset entry is required. Existing setup is backed up
 before replacement. This can be done before the roster arrives and does not change
 the active test website or cron settings.
+
+Saving a start time does not start the race immediately: the live clock waits
+until that configured date and time. If the confirmed time changes, rerun the
+setup command to update it. Continue with the race-day Doc and website switch
+below only when you are ready to move from the fictional test to the real race.
 
 ## 5. Prepare a clean race Google Doc
 
