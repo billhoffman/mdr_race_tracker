@@ -91462,7 +91462,8 @@
       22635.4
     ],
     "length_m": 22635.4,
-    "distance_basis": "Approximate horizontal distance along supplied track; not official race distance"
+    "distance_basis": "Approximate horizontal distance along supplied track; not official race distance",
+    "elevation_zero_is_missing": true
   },
   "checkpoints": [
     {

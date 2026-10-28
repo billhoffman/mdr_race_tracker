@@ -113,6 +113,28 @@ in this prototype; laps/repeated visits and offline station entry are future wor
 
 ## Updates and checks
 
+### Map background and elevation
+
+The browser defaults to an Esri World Imagery satellite background, with a Course
+only switch if imagery is unavailable or undesired. The image and course overlay
+use the same Web Mercator bounds. Imagery is loaded directly by the viewer's
+browser; the cron publisher needs no map downloads, keys or new Python packages.
+Attribution is displayed below the map. This external imagery service must be
+reachable for the satellite image; tracking and elevation still work if it fails.
+
+An elevation profile displays course miles and feet above sea level, checkpoint
+labels and last-confirmed runner locations. Moreau's track has one missing-elevation
+span (72 zero readings); it is explicitly marked in the course configuration and
+drawn as an orange dashed interpolation. Orange marker outlines in that section
+also indicate estimated elevation. No total-climb statistic is inferred from the gap.
+Other courses keep legitimate zero elevations unless their configuration explicitly
+sets `route.elevation_zero_is_missing`.
+
+After updating the code, run the publisher once (or wait for cron), then reload
+the page to load the new version of its browser assets.
+
+### Checks
+
 Stop the process before changing roster/config or updating code. Back up the
 persistent database, pull the changes, run tests, then restart the service.
 
@@ -122,5 +144,7 @@ python3 -m unittest discover -s tracker/tests -v
 ```
 
 If Node is available, `node --check tracker/web/app.js` checks browser JS syntax.
+`node --test tracker/tests/test_clock.cjs tracker/tests/test_geometry.cjs` checks
+clock behavior, map alignment and missing-elevation handling.
 Node is not required to run the tracker. Full local testing instructions are in
 [tracker/README.md](tracker/README.md).
