@@ -158,6 +158,15 @@ the page to load the new version of its browser assets.
 
 ### Checks
 
+The permanent [Buck 50 radio regression](tracker/tests/fixtures/buck50/README.md)
+replays the original 290-row radio table through the current reader and ingestion
+code. It runs automatically with the full suite below. To run only that regression:
+
+```sh
+python3 -m unittest tracker.tests.test_buck50 -v
+```
+
+
 Stop the process before changing roster/config or updating code. Back up the
 persistent database, pull the changes, run tests, then restart the service.
 

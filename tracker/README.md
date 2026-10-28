@@ -228,6 +228,12 @@ system on race day; retain the operators' source log.
 
 ## Checks
 
+The full suite includes the original Buck 50 radio table as an offline regression.
+Run it alone with `python3 -m unittest tracker.tests.test_buck50 -v`.
+See the [fixture notes](tests/fixtures/buck50/README.md) for expected outcomes and
+the distinction between message parsing and repeated course visits.
+
+
 ```sh
 python3 -m unittest discover -s tracker/tests -v
 node --check tracker/web/app.js
