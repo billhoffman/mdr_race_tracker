@@ -86,12 +86,9 @@ host's normal proxy/firewall configuration. The default remains loopback.
 
 ## Real race setup
 
-1. Copy `races/moreau-test/race.json` to a new local config, for example
-   `races/moreau-2026/race.local.json`. Set a distinct `race_id`, actual name,
-   actual date and start time with timezone, `test_mode: false`, and
-   `clock_mode: "live"`. The example start time is **fictional**.
-2. Keep `course_file` relative to that config. For the Moreau directory use
-   `"course_file": "course.json"`.
+1. Run `python3 -m tracker.setup_race` and answer the date/start-time prompts.
+   This creates the real race configuration and handles the New York timezone.
+2. Review the displayed start time. The old fictional test start is not reused.
 3. Import the UltraSignup participant export after assigning bib numbers:
 
 ```sh

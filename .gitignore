@@ -19,5 +19,5 @@ data/
 *client_secret*.json
 *credentials*.json
 races/*/roster.json
-races/*/race.local.json
+races/*/race.local.json*
 races/*/live.local.txt

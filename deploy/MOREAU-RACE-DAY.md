@@ -72,33 +72,23 @@ whenever the publisher runs. Runners initially show **Not reported**.
 
 ## 4. Prepare the real race configuration
 
-The actual start time must be confirmed. **09:00 was a fictional test time.**
-Run this command on DreamHost. It asks for the confirmed start and generates a
-local config without changing the tracked test file:
+Run the guided setup on DreamHost:
 
 ```sh
-python3 -c '
-import json
-from datetime import datetime
-from pathlib import Path
-from zoneinfo import ZoneInfo
-stamp=input("Confirmed start, including date and offset (YYYY-MM-DDTHH:MM:SS-04:00): ").strip()
-start=datetime.fromisoformat(stamp)
-if start.tzinfo is None:
-    raise SystemExit("Include the timezone offset in the start time.")
-start=start.astimezone(ZoneInfo("America/New_York"))
-config={"race_id":"moreau-half-2026","name":"Moreau Half 2026","test_mode":False,"date":start.date().isoformat(),"timezone":"America/New_York","start_time":start.isoformat(),"clock_mode":"live","course_file":"course.json","roster_file":"roster.json"}
-path=Path("races/moreau-2026/race.local.json")
-if path.exists():
-    raise SystemExit("race.local.json already exists; review/edit it rather than overwriting it.")
-path.write_text(json.dumps(config,indent=2)+"\n")
-print(path.read_text())
-'
+python3 -m tracker.setup_race
 ```
 
-Review the date/start printed by the command. For the October 31, 2026 race, the
-local timezone offset is `-04:00`. The live clock stays at zero until the configured
-start, then advances continuously. Bibs are recognized independently of clock mode.
+It asks for:
+
+1. **Race date** — press Enter to accept October 31, 2026.
+2. **Confirmed start time** — type a normal local time, such as `8:00 AM`.
+3. **Save?** — review the summary and type `y`.
+
+The time above is an example, not the confirmed start. The helper handles the
+New York timezone and writes `races/moreau-2026/race.local.json`. No Python code,
+JSON editing or timezone-offset entry is required. Existing setup is backed up
+before replacement. This can be done before the roster arrives and does not change
+the active test website or cron settings.
 
 ## 5. Prepare a clean race Google Doc
 
