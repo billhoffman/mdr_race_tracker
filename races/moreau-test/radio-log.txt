@@ -1,0 +1,11 @@
+Net Controls: Fictional practice log
+TIME
+MESSAGE
+0910	Checkpoint A Bib #101, 102 and 103 passing location
+0915	Checkpoint A Bib #104 #105 and #106 passed at 0914
+0940	Checkpoint B Bib #101 passed at 0935, #102 and #103 at 0938
+0950	Checkpoint B First female runner #104 passed location bib #105 dropped from race
+0955	Checkpoint B #106 passing location
+1105	Finish Line Bib #101 finished the race at 1100
+1110	Finish Line Bib #102 finished the race at 1108 #103 at 1109
+1120	Bibs 104 and 106 finished the race

@@ -7,6 +7,7 @@ import re
 import sqlite3
 import threading
 from zoneinfo import ZoneInfo
+from .radio import input_rows, identify_rows, parse_report
 
 
 def load_config(path, roster_path=None):
@@ -98,7 +99,8 @@ class Store:
             raise ValueError('Database belongs to a different race; choose another database path')
         self.db.execute("INSERT OR IGNORE INTO meta VALUES('race_id',?)",(config['race_id'],))
         self.db.commit()
-        self.issues = []
+        saved_issues=self.db.execute("SELECT value FROM meta WHERE key='input_issues'").fetchone()
+        self.issues = json.loads(saved_issues[0]) if saved_issues else []
         self.health = {'last_attempt':None,'last_success':None,'error':None,'mode':None}
         health = self.db.execute("SELECT value FROM meta WHERE key='source_health'").fetchone()
         if health:
@@ -113,6 +115,9 @@ class Store:
             self.db.execute("INSERT OR REPLACE INTO meta VALUES('source_health',?)",(json.dumps(self.health),))
 
     def ingest(self, text, source='primary-log'):
+        rows=input_rows(text)
+        if rows is not None:
+            return self.ingest_radio(rows,source)
         parsed, issues, seen = [], [], set()
         for line_number, raw in enumerate(text.splitlines(),1):
             raw = raw.strip().lstrip('\ufeff')
@@ -145,6 +150,54 @@ class Store:
                 self.db.execute('INSERT INTO revisions(source,id,payload,raw,received) VALUES(?,?,?,?,?)',
                     (source,event['id'],payload,raw,received))
             self.issues = issues
+            self.db.execute("INSERT OR REPLACE INTO meta VALUES('input_issues',?)",(json.dumps(issues),))
+        return issues
+
+    def ingest_radio(self, rows, source):
+        """Apply each table row atomically, including edited multi-runner reports."""
+        key='radio_rows:'+source
+        with self.lock, self.db:
+            saved=self.db.execute('SELECT value FROM meta WHERE key=?',(key,)).fetchone()
+            saved=json.loads(saved[0]) if saved else {'rows':[],'next_id':1,'retired':[]}
+            mapped,next_id,retired=identify_rows(saved['rows'],rows,saved['next_id'],saved.get('retired',[]))
+            issues=[]
+            received=datetime.now().astimezone().isoformat()
+            for line,row in enumerate(mapped,1):
+                raw=row['time']+' | '+row['message']
+                # IDs are internal and stable. All observations from a valid row
+                # supersede its previous group together; malformed edits keep it.
+                old=self.db.execute('SELECT id,payload FROM entries WHERE source=? AND id GLOB ?',
+                                    (source,row['id']+'_*')).fetchall()
+                try:
+                    events=parse_report(row,self.config,parse_line)
+                    if not events and any(not json.loads(r['payload']).get('void') for r in old):
+                        raise ValueError('An accepted runner report was replaced with non-runner text; last confirmed data retained')
+                except ValueError as exc:
+                    issues.append({'line':line,'id':row['id'],'text':raw,'message':str(exc)})
+                    continue
+                if any(e.get('clock_warning') for e in events):
+                    issues.append({'line':line,'id':row['id'],'text':raw,
+                        'message':'Accepted explicit passage time up to two minutes ahead of report clock; verify operator clocks.'})
+                ids={e['id'] for e in events}
+                events.extend({'id':r['id'],'void':True} for r in old
+                              if r['id'] not in ids and not json.loads(r['payload']).get('void'))
+                for event in events:
+                    payload=json.dumps(event,sort_keys=True)
+                    previous=next((r['payload'] for r in old if r['id']==event['id']),None)
+                    if previous==payload:continue
+                    self.db.execute('INSERT OR REPLACE INTO entries VALUES(?,?,?,?,?,?)',
+                                    (source,event['id'],payload,raw,received,int(not event['void'])))
+                    self.db.execute('INSERT INTO revisions(source,id,payload,raw,received) VALUES(?,?,?,?,?)',
+                                    (source,event['id'],payload,raw,received))
+            for row in retired:
+                active=self.db.execute('SELECT 1 FROM entries WHERE source=? AND id GLOB ? AND active=1',
+                                       (source,row['id']+'_*')).fetchone()
+                if active:issues.append({'line':None,'id':row['id'],'text':row['time']+' | '+row['message'],
+                    'message':'Previously accepted row is missing. Last confirmed observations retained; restore and edit the original row to correct it.'})
+            self.db.execute('INSERT OR REPLACE INTO meta VALUES(?,?)',
+                            (key,json.dumps({'rows':mapped,'next_id':next_id,'retired':retired})))
+            self.issues=issues
+            self.db.execute("INSERT OR REPLACE INTO meta VALUES('input_issues',?)",(json.dumps(issues),))
         return issues
 
     def snapshot(self):
@@ -168,7 +221,7 @@ class Store:
             events = [e for e in observations if bib in e['bibs']]
             accepted, terminal, previous = [], None, -1
             for event in events:
-                distance = checkpoint_distance[event['station']]
+                distance = checkpoint_distance.get(event['station'],previous)
                 if terminal:
                     anomalies.append({'bib':bib,'id':event['id'],'message':'Report after finish/withdrawal; correct or void the conflicting entry'})
                     continue
@@ -180,9 +233,11 @@ class Store:
                 if event['kind'] in {'FINISH','WITHDRAWN'}:
                     terminal = event['kind']
             last = accepted[-1] if accepted else None
+            position = next((e for e in reversed(accepted) if e['station'] is not None),None)
             status = 'finished' if terminal=='FINISH' else 'withdrawn' if terminal else 'on_course' if last else 'not_reported'
             runners.append({**runner,'bib':bib,'status':status,'last':last,
-                'distance_m':checkpoint_distance[last['station']] if last else None,
+                'position':position,
+                'distance_m':checkpoint_distance[position['station']] if position else None,
                 'elapsed_seconds':(datetime.fromisoformat(last['time'])-start).total_seconds() if status=='finished' else None,
                 'reports':[{'id':e['id'],'station':e['station'],'time':e['time'],'kind':e['kind']} for e in accepted]})
         finishers = sorted([r for r in runners if r['status']=='finished'],key=lambda r:(r['elapsed_seconds'],r['bib']))

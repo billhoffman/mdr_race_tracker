@@ -146,6 +146,9 @@ def main():
     except (ValueError,OSError,json.JSONDecodeError) as exc:
         raise SystemExit(str(exc))
     print(f'Published {config["name"]} to {args.web_root}; {state["revision"]} saved revisions.')
+    if state['issues'] or state['anomalies']:
+        print(f"Private review: {len(state['issues'])} input reports, {len(state['anomalies'])} runner progression conflicts.")
+        print('Inspect input reports with: python3 -m tracker.review --database '+str(args.database))
     if not success:
         raise SystemExit('Input read failed. Published last confirmed observations with a source-error notice.')
 

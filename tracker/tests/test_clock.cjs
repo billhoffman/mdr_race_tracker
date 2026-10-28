@@ -21,3 +21,11 @@ test('fictional report clock stays at the latest report time',()=>{
 test('live clock stays at zero before the race start',()=>{
  assert.equal(clock({clock_mode:'live',clock:'2026-10-31T08:30:00-04:00',start_time:'2026-10-31T09:00:00-04:00'},60),'00:00:00');
 });
+test('a withdrawal with unknown location keeps its last confirmed marker',()=>{
+ const sandbox={window:{},performance:{now:()=>0},result:null};
+ const prefix=source.slice(0,source.indexOf('function countMarker('));
+ vm.runInNewContext(prefix+'\nstate={runners:[{bib:"101",last:{station:null},position:{station:"B"}},{bib:"102",last:{station:null},position:null}]};result=JSON.stringify(runnerGroups());',sandbox);
+ const groups=JSON.parse(sandbox.result);
+ assert.deepEqual(Object.keys(groups),['B']);
+ assert.equal(groups.B[0].bib,'101');
+});

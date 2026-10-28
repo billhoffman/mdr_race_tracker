@@ -82,7 +82,72 @@ Load an imported roster with `--roster races/moreau-2026/roster.json` or set
 Use the actual Moreau race configuration and a separate database when switching to
 real runners; preserve the current six-runner test so its scripted reports still work.
 
-### Report syntax
+### Existing radio operators' TIME / MESSAGE table
+
+The tracker automatically recognizes the two-column table used at Buck 50 and
+Moreau. Operators can keep using their existing document and wording. Public
+Google Docs are read as HTML so cell boundaries and multiline messages survive;
+the authenticated API reader preserves the same rows. Existing ID/pipe documents
+continue to work.
+
+Examples (separate TIME and MESSAGE cells):
+
+| TIME | MESSAGE |
+|---|---|
+| 0910 | Checkpoint A Bib #101 passing location |
+| 0935 | Checkpoint B #101 passed at 0930, #102 and #103 at 0932 |
+| 0950 | Checkpoint C First female runner #104 passed location bib #105 dropped from race |
+| 1100 | Finish Line Bib #101 finished the race at 1058 |
+
+Both HHMM and HH:MM times work. Explicit passage times take precedence over the
+TIME cell; otherwise that cell supplies the report time, which may be later than
+actual passage. The roster and configured checkpoints validate each report.
+A withdrawal without an explicit location changes status while preserving any
+last known checkpoint; it does not place the runner at the reporting station.
+
+Routine radio/sweep traffic is ignored. Requests, absent/outstanding runners,
+unknown bibs/stations, duplicate bib identities, and ambiguous corrections go to
+private review. Explicit passage times up to two minutes ahead of the report clock
+are accepted with a clock warning; larger discrepancies are held. Separate prose
+corrections are flagged rather than guessed: a director can correct the original
+table row after checking the radio log. No official results or race-specific bib
+exceptions are used to infer progress.
+
+Rows get internal IDs stored in SQLite, so repeated polls and restarts do not
+create duplicates. Editing an identifiable row replaces its entire runner group
+and retains audit history. Invalid/incomplete edits retain the last accepted
+version. Inserting rows and appending reports preserve existing identities;
+deleting an accepted row retains its observations and raises a review issue.
+Several simultaneous edits whose row identities cannot be matched stop that
+update with a source error, preserving the previously confirmed data.
+
+For a fictional file test, independent of your existing test database:
+
+```sh
+python3 -m tracker.server --source file --log races/moreau-test/radio-log.txt --database outputs/tracker/radio-test.sqlite3
+```
+
+The example has six fictional runners, five finishes and one withdrawal. It uses
+the same natural wording as the operators; change a row and save to try corrections.
+For a live Google Doc, the server/publisher commands and cron schedule are unchanged.
+Use the real roster, confirmed start and a separate database before switching from
+fictional testing to the actual Moreau log.
+
+The local staff view shows issues and progression conflicts. The static spectator
+site hides private radio text. The cron log prints review counts; inspect its
+input reports privately on the hosting shell:
+
+```sh
+python3 -m tracker.review --database "$HOME/mdr-tracker-data/moreau-test.sqlite3"
+```
+
+Use the actual database path from your environment file for race day. This command
+is read-only and never changes observations. Repeated-checkpoint courses such as
+Buck's return leg still need a separate course-visit model; this adapter does not
+add lap/return-visit support.
+
+### Structured report syntax (also supported)
+
 
 ```text
 T001 | 09:10 | A | 101 | PASS
@@ -148,6 +213,7 @@ private API path need a live Google account to verify end to end.
 ## Code boundaries and current limits
 
 - `core.py`: race config, validation, corrections, SQLite history, confirmed state.
+- `radio.py`: table-row identities and conservative natural radio-message parsing.
 - `sources.py`: Google Doc and text extraction. Another input adapter can feed the
   same observations later.
 - `server.py`: polling and local read-only HTTP endpoints.

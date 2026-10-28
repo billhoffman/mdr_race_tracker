@@ -27,9 +27,14 @@ python3 -m tracker.server --source google --google-doc 'YOUR_GOOGLE_DOC_URL'
 
 Or set `TRACKER_GOOGLE_DOC` in the server environment. The document ID, credentials
 and the local test database are not copied from the original workspace into Git.
-For public/link-viewable fictional docs, text export needs no sign-in. For private
+For public/link-viewable docs, HTML export needs no sign-in. For private
 docs, use the [optional Google OAuth setup](tracker/README.md#private-google-doc-official-api-option).
 The server reads every 15 seconds; the page refreshes data every three seconds.
+
+The existing **TIME / MESSAGE** radio table is supported automatically, including
+the natural messages used at Buck 50. Operators do not need to change their format.
+See [radio table support and a fictional test](tracker/README.md#existing-radio-operators-time--message-table).
+Ambiguous messages go to private review; the public page shows confirmed progress.
 
 ## Server deployment
 

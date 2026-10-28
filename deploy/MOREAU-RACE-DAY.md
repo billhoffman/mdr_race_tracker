@@ -100,27 +100,24 @@ until that configured date and time. If the confirmed time changes, rerun the
 setup command to update it. Continue with the race-day Doc and website switch
 below only when you are ready to move from the fictional test to the real race.
 
-## 5. Prepare a clean race Google Doc
+## 5. Use the radio operators' race Google Doc
 
-Create a **new race-day Google Doc** for the operators. Keep the fictional test Doc
-as an archive; do not point the real database at a Doc containing test reports.
+Use their existing Moreau TIME / MESSAGE table:
+
+https://docs.google.com/document/d/1tP6AB0TFm3xSzfCjAdRv9Tek6zcI7-6_vIaPBeKtSaA/edit
+
+The operators can keep their normal wording, as at Buck 50. The tracker recognizes
+checkpoint names, bib lists, passage times, finishes and drops automatically.
+D and G are aid stations. If a message gives an actual passage time, that takes
+precedence over the TIME cell; otherwise the radio report time is used.
+
+Keep the fictional test Doc as an archive and use a separate real-race database.
 If using link-based access, set **Anyone with the link > Viewer**. Give operators
-editing access separately.
-
-Use one report per paragraph, with a unique ID, actual clock time, checkpoint,
-bib(s), and action:
-
-```text
-R001 | HH:MM | A | ACTUAL_BIB | PASS
-R002 | HH:MM | D | ACTUAL_BIB,ACTUAL_BIB | PASS
-R003 | HH:MM | G | ACTUAL_BIB | WITHDRAWN
-R004 | HH:MM | FINISH | ACTUAL_BIB | FINISH
-```
-
-These lines show syntax only: replace HH:MM and ACTUAL_BIB with real observations.
-Do not paste placeholders as race data. D and G are aid stations. A report's time
-is when the runner passed, not when the operator finished typing it. Correct an
-entry by editing its original line and keeping its ID. Retract with `R001 | VOID`.
+editing access separately. Do not paste practice reports into the real radio log.
+Ambiguous messages and separate prose corrections go to private review; after
+checking a correction, the director can edit the original table row. The detailed
+[radio table notes](../tracker/README.md#existing-radio-operators-time--message-table)
+explain what is accepted and how edits are retained in the audit.
 
 ## 6. Pause the test cron entry
 
@@ -230,3 +227,31 @@ after the race has started needs a deliberate data review, not a blind overwrite
 The password remains in 1Password. Google tokens, registration exports, local
 config/roster and SQLite databases remain outside Git; raw exports and databases
 also stay outside the public website directory.
+
+
+## Radio operators' existing table
+
+The tracker now reads the existing TIME / MESSAGE format automatically, including
+HHMM times, groups of bibs, embedded passage times, finishes and drops. The radio
+operators do not need to type ID/pipe lines. Keep the original radio log as the
+source of record. The real Moreau document is:
+
+https://docs.google.com/document/d/1tP6AB0TFm3xSzfCjAdRv9Tek6zcI7-6_vIaPBeKtSaA/edit
+
+Once the real roster, confirmed start and separate race database are ready, set
+`TRACKER_GOOGLE_DOC` in `~/.mdr-tracker.env` to that URL and publish normally.
+Do not point the fictional test configuration at real race traffic.
+
+Ambiguous messages remain in private review. On DreamHost, read the cron log's
+review counts and inspect input issues with the actual `TRACKER_DATABASE` path:
+
+```sh
+cd ~/mdr_race_tracker
+python3 -m tracker.review --database ~/mdr-tracker-data/moreau-test.sqlite3
+```
+
+Replace the test database path above with the race-day database when switching.
+The local staff view also checks backwards progress and reports after withdrawal
+or finish. A separate prose correction is flagged for review; after checking it,
+the director can edit the original table row. The spectator site contains no raw
+radio messages or review details.
