@@ -1,5 +1,9 @@
 # Local checkpoint tracker
 
+For DreamHost shared hosting and the static `/mdr/moreau/` page, use the
+[cron publisher instructions](../deploy/DREAMHOST.md). This page describes the
+continuous local test server, which remains available for development.
+
 This is a local prototype for reading checkpoint reports from a Google Doc or a
 text file. It uses the Moreau course with six **fictional** runners. The configured
 09:00 start is for testing only. No movie renderer or DEC-report code is involved.
@@ -161,4 +165,5 @@ system on race day; retain the operators' source log.
 ```sh
 python3 -m unittest discover -s tracker/tests -v
 node --check tracker/web/app.js
+node --test tracker/tests/test_clock.cjs
 ```

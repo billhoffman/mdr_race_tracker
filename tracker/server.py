@@ -1,6 +1,5 @@
 """Run locally: python3 -m tracker.server --source file"""
 import argparse
-from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
@@ -10,7 +9,7 @@ import threading
 import urllib.parse
 
 from .core import Store, load_config
-from .sources import read_google
+from .pipeline import poll_once
 
 ROOT = Path(__file__).resolve().parents[1]
 WEB = Path(__file__).resolve().parent/'web'
@@ -54,21 +53,7 @@ def main():
 
     def poll():
         while not stop.is_set():
-            now = datetime.now().astimezone().isoformat()
-            with store.lock:
-                store.health.update(last_attempt=now,mode=args.source)
-            try:
-                text = args.log.read_text(encoding='utf-8-sig') if args.source=='file' else read_google(doc_id,args.google_token)
-                if len(text)>5_000_000:
-                    raise ValueError('Input exceeds the five-megabyte test limit')
-                store.ingest(text)
-                with store.lock:
-                    store.health.update(last_success=datetime.now().astimezone().isoformat(),error=None)
-            except Exception as exc:
-                # Last confirmed observations remain available when the source fails.
-                message = str(exc) if isinstance(exc,(ValueError,FileNotFoundError)) else f'Could not read {args.source} input ({type(exc).__name__}). Check internet access and sharing.'
-                with store.lock:
-                    store.health['error'] = message
+            poll_once(store,args.source,args.log,doc_id,args.google_token,args.interval)
             stop.wait(args.interval)
 
     class Handler(BaseHTTPRequestHandler):

@@ -11,6 +11,10 @@ outputs/
 data/
 *.sqlite*
 *.db
+*.csv
+*.xlsx
+*.xls
+*.docx
 *.pem
 *client_secret*.json
 *credentials*.json

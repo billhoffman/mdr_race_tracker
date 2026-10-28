@@ -33,6 +33,18 @@ The server reads every 15 seconds; the page refreshes data every three seconds.
 
 ## Server deployment
 
+### DreamHost shared hosting
+
+Shared hosting is supported through the **one-shot static publisher**, run by cron
+about once per minute. It reads the log, updates the private database, publishes
+the spectator page, and exits. No persistent server or reverse proxy is needed.
+
+See [the DreamHost setup](deploy/DREAMHOST.md) for publishing to
+**https://www.llamasystem.org/mdr/moreau/**. The live race clock ticks in the browser
+between cron updates. New observations appear after the next scheduled run.
+
+### Hosts supporting long-running services
+
 This is a long-running Python application: the host needs Python process support,
 outbound HTTPS to Google, and a writable persistent directory. Static-only hosting
 or a host that only supports PHP will not run it by itself.
@@ -53,7 +65,8 @@ By default it listens on `127.0.0.1:8000`. Configure your existing web server's
 HTTPS reverse proxy to forward requests to that address. Example configuration
 fragments are in [deploy/](deploy/). Use a **dedicated hostname**, such as
 `tracker.example.com`, because the browser uses root-relative `/api/` paths.
-The main website can link to that hostname.
+The main website can link to that hostname. For an existing site's subdirectory,
+use the static publisher above instead.
 
 `--public` hides raw operator history and validation details and disables
 `/api/audit`. Staff mode is the default local view; protect it using your host's

@@ -81,9 +81,17 @@ class Store:
         self.db.commit()
         self.issues = []
         self.health = {'last_attempt':None,'last_success':None,'error':None,'mode':None}
+        health = self.db.execute("SELECT value FROM meta WHERE key='source_health'").fetchone()
+        if health:
+            self.health.update(json.loads(health[0]))
 
     def close(self):
         self.db.close()
+
+    def set_health(self, **values):
+        with self.lock, self.db:
+            self.health.update(values)
+            self.db.execute("INSERT OR REPLACE INTO meta VALUES('source_health',?)",(json.dumps(self.health),))
 
     def ingest(self, text, source='primary-log'):
         parsed, issues, seen = [], [], set()
