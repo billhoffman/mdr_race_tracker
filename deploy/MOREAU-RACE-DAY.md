@@ -1,0 +1,232 @@
+# Moreau Half: access, roster import, and race-day setup
+
+Public tracker: **https://www.llamasystem.org/mdr/moreau/**
+
+The site currently runs the fictional six-runner test. These instructions switch
+it to the real Moreau race once UltraSignup bibs are available. Keep the test and
+real databases separate. Registration is not proof that a runner started.
+
+## 1. Log in to DreamHost
+
+From Terminal on your Mac:
+
+```sh
+ssh dh_6n4gzz@pdx1-shared-a1-19.dreamhost.com
+```
+
+**Password reference:** the DreamHost SSH password for `dh_6n4gzz` is saved in
+**1Password**. Retrieve it there when prompted. It is the website/Shell user's
+password, which can differ from the DreamHost panel login. No password is stored
+in this README or Git repository. Terminal does not display characters as you type.
+
+On DreamHost:
+
+```sh
+cd ~/mdr_race_tracker
+git pull --ff-only
+mkdir -p ~/mdr-tracker-data
+python3 --version
+```
+
+Use the Python executable already working in `~/.mdr-tracker.env`. The commands
+below use `python3`; substitute the configured executable if yours differs.
+
+## 2. Download and upload the UltraSignup participant list
+
+Assign the runner bibs in UltraSignup, then download its **participant/registration
+export**, not a results export. CSV or XLSX is supported. It must include names and
+assigned bib numbers. Keep this file private: exports can contain contact details.
+
+For example, save it on your Mac as `~/Downloads/MoreauExport.xlsx`. In a separate
+Mac Terminal window (not the DreamHost shell), upload it:
+
+```sh
+scp "$HOME/Downloads/MoreauExport.xlsx" dh_6n4gzz@pdx1-shared-a1-19.dreamhost.com:mdr-tracker-data/MoreauExport.xlsx
+```
+
+Use the actual filename/extension if different. The destination directory was
+created in step 1 and is outside the public website directory.
+
+## 3. Import the names and bibs
+
+Back in the DreamHost SSH session:
+
+```sh
+cd ~/mdr_race_tracker
+python3 -m tracker.import_roster "$HOME/mdr-tracker-data/MoreauExport.xlsx" --output races/moreau-2026/roster.json
+```
+
+The output reports the imported count and any skipped rows. Check the count against
+the intended race field. Rows marked removed, rows without bibs, and exact duplicates
+are skipped. Conflicting assignments of the same bib to different names stop the
+import. The generated roster contains **only names and bibs**; it is ignored by Git.
+
+To inspect the imported list:
+
+```sh
+python3 -c 'import json; r=json.load(open("races/moreau-2026/roster.json")); print("Runners:",len(r)); [print(p["bib"],p["name"]) for p in r]'
+```
+
+Do not manually add all runners to the database. The tracker reads this roster
+whenever the publisher runs. Runners initially show **Not reported**.
+
+## 4. Prepare the real race configuration
+
+The actual start time must be confirmed. **09:00 was a fictional test time.**
+Run this command on DreamHost. It asks for the confirmed start and generates a
+local config without changing the tracked test file:
+
+```sh
+python3 -c '
+import json
+from datetime import datetime
+from pathlib import Path
+from zoneinfo import ZoneInfo
+stamp=input("Confirmed start, including date and offset (YYYY-MM-DDTHH:MM:SS-04:00): ").strip()
+start=datetime.fromisoformat(stamp)
+if start.tzinfo is None:
+    raise SystemExit("Include the timezone offset in the start time.")
+start=start.astimezone(ZoneInfo("America/New_York"))
+config={"race_id":"moreau-half-2026","name":"Moreau Half 2026","test_mode":False,"date":start.date().isoformat(),"timezone":"America/New_York","start_time":start.isoformat(),"clock_mode":"live","course_file":"course.json","roster_file":"roster.json"}
+path=Path("races/moreau-2026/race.local.json")
+if path.exists():
+    raise SystemExit("race.local.json already exists; review/edit it rather than overwriting it.")
+path.write_text(json.dumps(config,indent=2)+"\n")
+print(path.read_text())
+'
+```
+
+Review the date/start printed by the command. For the October 31, 2026 race, the
+local timezone offset is `-04:00`. The live clock stays at zero until the configured
+start, then advances continuously. Bibs are recognized independently of clock mode.
+
+## 5. Prepare a clean race Google Doc
+
+Create a **new race-day Google Doc** for the operators. Keep the fictional test Doc
+as an archive; do not point the real database at a Doc containing test reports.
+If using link-based access, set **Anyone with the link > Viewer**. Give operators
+editing access separately.
+
+Use one report per paragraph, with a unique ID, actual clock time, checkpoint,
+bib(s), and action:
+
+```text
+R001 | HH:MM | A | ACTUAL_BIB | PASS
+R002 | HH:MM | D | ACTUAL_BIB,ACTUAL_BIB | PASS
+R003 | HH:MM | G | ACTUAL_BIB | WITHDRAWN
+R004 | HH:MM | FINISH | ACTUAL_BIB | FINISH
+```
+
+These lines show syntax only: replace HH:MM and ACTUAL_BIB with real observations.
+Do not paste placeholders as race data. D and G are aid stations. A report's time
+is when the runner passed, not when the operator finished typing it. Correct an
+entry by editing its original line and keeping its ID. Retract with `R001 | VOID`.
+
+## 6. Pause the test cron entry
+
+On DreamHost:
+
+```sh
+crontab -e
+```
+
+Below the **END DREAMHOST BLOCK** line, place `#` at the beginning of the tracker
+line to pause it. Preserve DreamHost's managed block and any other jobs. The line
+should temporarily look like this:
+
+```cron
+# * * * * * /bin/sh /home/dh_6n4gzz/mdr_race_tracker/deploy/dreamhost-publish.sh >> /home/dh_6n4gzz/mdr-tracker-data/publish.log 2>&1
+```
+
+In nano: **Ctrl+O**, **Enter**, **Ctrl+X**. Confirm with `crontab -l`. Let any
+publication already in progress finish before switching settings.
+
+## 7. Switch the environment to the real race
+
+Back up the working test settings, then edit the existing file. Do not copy the
+example over it, because that would replace your working paths and Doc setting.
+
+```sh
+cp ~/.mdr-tracker.env ~/.mdr-tracker-test.env.backup
+chmod 600 ~/.mdr-tracker-test.env.backup
+nano ~/.mdr-tracker.env
+```
+
+Keep the working REPO, PYTHON and WEB_ROOT values. Set/uncomment these values:
+
+```sh
+TRACKER_CONFIG="$TRACKER_REPO/races/moreau-2026/race.local.json"
+TRACKER_ROSTER="$TRACKER_REPO/races/moreau-2026/roster.json"
+TRACKER_DATABASE="$HOME/mdr-tracker-data/moreau-2026.sqlite3"
+TRACKER_GOOGLE_DOC="PASTE_THE_NEW_RACE_DAY_DOC_URL_HERE"
+```
+
+Paste the actual new Doc URL in that last line. Save and exit. The real database
+filename is deliberately different from `moreau-test.sqlite3`.
+
+## 8. Preserve the test page and publish the real page
+
+The output folder is tagged with its race ID. Move the test output aside before
+publishing a different race to the same URL. This preserves the test page and lets
+the publisher create a new `moreau` folder:
+
+```sh
+mv "$HOME/llamasystem.org/mdr/moreau" "$HOME/llamasystem.org/mdr/moreau-test-$(date +%Y%m%d-%H%M%S)"
+cd ~/mdr_race_tracker
+sh deploy/dreamhost-publish.sh
+```
+
+Check **https://www.llamasystem.org/mdr/moreau/**. Confirm:
+
+- The heading says **Moreau Half 2026**, without the fictional-test badge.
+- The roster count matches the import; names and bibs are the actual field.
+- The configured start is correct; the clock is zero before the start.
+- The source connects successfully and no fictional reports appear.
+
+Do not add invented passages to the real race Doc just to test movement. Use the
+separate fictional test for that. The real page can be verified with an empty Doc.
+
+## 9. Resume once-per-minute publishing
+
+Run `crontab -e` again and remove the leading `#` from the tracker job:
+
+```cron
+* * * * * /bin/sh /home/dh_6n4gzz/mdr_race_tracker/deploy/dreamhost-publish.sh >> /home/dh_6n4gzz/mdr-tracker-data/publish.log 2>&1
+```
+
+Save, then check:
+
+```sh
+crontab -l
+tail -n 10 ~/mdr-tracker-data/publish.log
+```
+
+Cron now uses the real config/roster/Doc. The browser automatically loads updates
+after publication; runner positions remain at last confirmed checkpoints.
+
+## Late registrations and bib changes
+
+Export UltraSignup again, upload it privately, and rerun the same import command.
+For new runners, check the new count; the next cron run loads them automatically.
+Keep the prior roster before importing so removed entrants can be reviewed.
+
+Once reports have been recorded, do not remove their runners from the roster or
+reassign their bibs: the history is keyed by bib. If the import detects a changed
+name for an existing bib, it stops for review. A corrected assignment or removal
+after the race has started needs a deliberate data review, not a blind overwrite.
+
+## Troubleshooting and rollback
+
+- **No new passages:** check the private publish log, Doc access, report syntax,
+  actual bibs, and the page's last successful source read.
+- **Import says no assigned bibs:** assign bibs in UltraSignup and export again.
+- **Output belongs to another race:** the old test page has not been moved aside.
+- **Need to return to the test:** pause cron, restore `~/.mdr-tracker-test.env.backup`
+  to `~/.mdr-tracker.env`, rename the current real output folder to a new backup
+  name, and run the publisher. Keep both databases. Resume cron only after review.
+- **Viewing the private operator audit:** use the continuous local test server;
+  public static files intentionally do not contain the raw log or review details.
+
+The password remains in 1Password. Google tokens, registration exports, local
+config/roster and SQLite databases remain outside Git; raw exports and databases
+also stay outside the public website directory.

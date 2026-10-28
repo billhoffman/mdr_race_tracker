@@ -2,6 +2,10 @@
 
 Target URL: **https://www.llamasystem.org/mdr/moreau/**
 
+Already running the test? The [Moreau race-day runbook](MOREAU-RACE-DAY.md)
+covers SSH login, the 1Password reference, importing actual bibs/names, and switching
+the existing cron job from fictional test data to the real race.
+
 This mode runs briefly from cron, reads the Google Doc, updates the private SQLite
 database, publishes static spectator files, and exits. DreamHost serves the files
 normally. It does not run a persistent process, listen on a port, need a reverse

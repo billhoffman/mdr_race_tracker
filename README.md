@@ -43,6 +43,10 @@ See [the DreamHost setup](deploy/DREAMHOST.md) for publishing to
 **https://www.llamasystem.org/mdr/moreau/**. The live race clock ticks in the browser
 between cron updates. New observations appear after the next scheduled run.
 
+For SSH access, the 1Password reference, UltraSignup roster import and switching
+from the current test to the actual race, use the
+[Moreau race-day runbook](deploy/MOREAU-RACE-DAY.md).
+
 ### Hosts supporting long-running services
 
 This is a long-running Python application: the host needs Python process support,
