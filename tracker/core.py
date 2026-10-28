@@ -1,6 +1,7 @@
 """Validated observations and an auditable, persistent race state."""
 from datetime import datetime
 import json
+import math
 from pathlib import Path
 import re
 import sqlite3
@@ -11,7 +12,25 @@ from zoneinfo import ZoneInfo
 def load_config(path, roster_path=None):
     path = Path(path).resolve()
     config = json.loads(path.read_text())
-    config['course'] = json.loads((path.parent/config['course_file']).resolve().read_text())
+    course_path=(path.parent/config['course_file']).resolve()
+    config['course'] = json.loads(course_path.read_text())
+    elevation_patch=course_path.with_name(course_path.stem+'.elevation.local.json')
+    if elevation_patch.exists():
+        patch=json.loads(elevation_patch.read_text())['elevation_backfill']
+        for item in patch['points']:
+            index=item['point_index']
+            points=config['course']['route']['coordinates']
+            if not isinstance(index,int) or index<0 or index>=len(points):
+                raise ValueError('Elevation patch no longer matches the course; regenerate it.')
+            point=points[index]
+            original=point[2] if len(point)>2 else None
+            if point[:2]!=[item['longitude'],item['latitude']] or original!=item['original_m']:
+                raise ValueError('Elevation patch no longer matches the course; regenerate it.')
+            if not isinstance(item['elevation_m'],(int,float)) or not math.isfinite(item['elevation_m']):
+                raise ValueError('Elevation patch contains an invalid height.')
+            if len(point)<3:point.append(item['elevation_m'])
+            else:point[2]=item['elevation_m']
+        config['course']['route']['elevation_backfill']=patch
     config['checkpoints'] = {c['id']: c for c in config['course']['checkpoints']}
     if roster_path or config.get('roster_file'):
         roster_path = Path(roster_path).resolve() if roster_path else (path.parent/config['roster_file']).resolve()

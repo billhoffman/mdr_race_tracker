@@ -27,12 +27,12 @@ test('a genuine zero elevation is retained unless a course explicitly marks it m
  assert.equal(profile.at(0).feet,0);
  assert.equal(profile.gaps.length,0);
 });
-test('Moreau E lies in a missing-elevation span while G has recorded elevation',()=>{
+test('Moreau profile handles the original gap or its recorded USGS repair',()=>{
  const profile=geometry.elevationProfile(course.route);
  const checkpoint=id=>course.checkpoints.find(c=>c.id===id).distance_m;
- assert.equal(profile.at(checkpoint('E')).estimated,true);
+ assert.equal(profile.at(checkpoint('E')).estimated,!course.route.elevation_backfill);
  assert.equal(profile.at(checkpoint('G')).estimated,false);
- assert.equal(profile.gaps.length,1);
+ assert.equal(profile.gaps.length,course.route.elevation_backfill?0:1);
 });
 test('courses without elevation data can still display their map',()=>{
  assert.equal(geometry.elevationProfile({coordinates:[[0,0],[0,0]],distance_m:[0,100]}),null);

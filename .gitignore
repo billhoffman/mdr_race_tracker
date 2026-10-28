@@ -20,4 +20,5 @@ data/
 *credentials*.json
 races/*/roster.json
 races/*/race.local.json*
+races/*/*.elevation.local.json
 races/*/live.local.txt

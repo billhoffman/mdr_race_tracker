@@ -130,6 +130,24 @@ also indicate estimated elevation. No total-climb statistic is inferred from the
 Other courses keep legitimate zero elevations unless their configuration explicitly
 sets `route.elevation_zero_is_missing`.
 
+To fill the Moreau gap using the free USGS 3DEP Elevation Point Query Service,
+run this once on a machine with internet access:
+
+```sh
+python3 -m tracker.fill_elevation
+```
+
+It queries only the missing points (72 in the original track), caches completed
+requests, and writes `races/moreau-2026/course.elevation.local.json`. That local
+file is ignored by Git and loaded automatically by the tracker. The original
+course coordinates/elevations remain unchanged in Git. A failed download does not
+apply a partial repair; rerun the same command to resume cached requests. These
+are terrain-model elevations, not a ground survey. The data source is recorded
+in the local file and displayed below the elevation profile.
+
+After it finishes, run `sh deploy/dreamhost-publish.sh` (or wait for cron) and
+reload the page. This is a one-time download, not an extra job on every cron run.
+
 After updating the code, run the publisher once (or wait for cron), then reload
 the page to load the new version of its browser assets.
 

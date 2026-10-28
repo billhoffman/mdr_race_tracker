@@ -74,7 +74,7 @@ function drawElevation(){
   label(root,910,243,'Miles','#a6bebc',12);label(root,8,28,'Feet','#a6bebc',12);
   for(const c of course.checkpoints){const xx=x(c.distance_m);svg('line',{x1:xx,y1:35,x2:xx,y2:195,stroke:c.aid_station?'#b67b43':'#31505a','stroke-width':0.8,'stroke-dasharray':'2 5'},root);label(root,xx-5,28,c.id,c.aid_station?'#f5b369':'#c2d8d2',13)}
   elevationCache={course,profile,x,y,runners:svg('g',{},root)};
-  $('elevation-note').textContent='Elevation from the supplied course trace. Runner markers show confirmed course distance.'+(profile.gaps.length?' Orange dashed sections and orange-outlined markers use interpolated elevation where the track has missing values.':'');
+  $('elevation-note').textContent=(course.route.elevation_backfill?'Elevation from the course trace, with missing values filled from USGS 3DEP terrain data.':'Elevation from the supplied course trace.')+' Runner markers show confirmed course distance.'+(profile.gaps.length?' Orange dashed sections and orange-outlined markers use interpolated elevation where the track has missing values.':'');
  }
  if(!elevationCache.profile)return;
  const cache=elevationCache;cache.runners.replaceChildren();
