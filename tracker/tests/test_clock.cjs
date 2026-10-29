@@ -37,3 +37,8 @@ test('a failed director source remains visible when radio reads succeed',()=>{
  assert.match(sandbox.result.text,/Radio log connected/);
  assert.match(sandbox.result.text,/RD log: Director update failed/);
 });
+test('the browser race clock follows a corrected start from the next snapshot',()=>{
+ const base={clock_mode:'live',clock:'2026-10-31T08:10:00-04:00'};
+ assert.equal(clock({...base,start_time:'2026-10-31T08:00:00-04:00'}),'00:10:01');
+ assert.equal(clock({...base,start_time:'2026-10-31T08:01:00-04:00'}),'00:09:01');
+});

@@ -3,6 +3,7 @@ from datetime import datetime
 import hashlib
 import json
 import re
+from zoneinfo import ZoneInfo
 
 SOURCE='director-log'
 HEADINGS={'race director log','race director','rd log','commands'}
@@ -25,11 +26,28 @@ def initialize(store):
         if old and old['name']!=row['name']:
             raise ValueError('Roster conflicts with director-added bib '+row['bib']+'; review the bib assignment.')
         store.config['runners'][row['bib']]={'bib':row['bib'],'name':row['name']}
+    override=store.db.execute("SELECT value FROM meta WHERE key='director_start_override'").fetchone()
+    if override:
+        store.start_override=True
+        store.config['start']=datetime.fromisoformat(override['value'])
+        store.config['start_time']=override['value']
 
 
 def parse(raw, command_id, config, validate):
+    if re.fullmatch(r'UNDO\s+START\s+TIME',raw,re.I):
+        return {'id':command_id,'action':'UNDO_START_TIME'}
+    if re.match(r'START\s+TIME\b',raw,re.I):
+        match=re.fullmatch(r'START\s+TIME(?:\s*\|\s*|\s+)(\d{4}|\d{2}:\d{2}(?::\d{2})?)',raw,re.I)
+        if not match:raise ValueError('Use START TIME HH:MM[:SS], for example START TIME 08:01')
+        clock=match[1]
+        if len(clock)==4:clock=clock[:2]+':'+clock[2:]
+        try:
+            pattern='%Y-%m-%dT%H:%M:%S' if clock.count(':')==2 else '%Y-%m-%dT%H:%M'
+            start=datetime.strptime(config['date']+'T'+clock,pattern).replace(tzinfo=ZoneInfo(config['timezone']))
+        except ValueError as exc:raise ValueError('Invalid race start time; use HH:MM[:SS] on the configured race date') from exc
+        return {'id':command_id,'action':'START_TIME','start_time':start.isoformat()}
     match=re.fullmatch(r'(UNDO DNS|UNDO PASS|UNDO FINISH|UNDO WITHDRAW|ADD|REMOVE|DNS|PASS|FINISH|WITHDRAW)\s+([A-Za-z0-9_-]+)\s*(.*)',raw,re.I)
-    if not match:raise ValueError('Use ADD bib | Name, REMOVE bib, DNS bib, UNDO DNS bib, PASS bib | checkpoint | HH:MM, FINISH bib | HH:MM, or WITHDRAW bib | HH:MM')
+    if not match:raise ValueError('Use START TIME HH:MM, ADD bib | Name, REMOVE bib, DNS bib, UNDO DNS bib, PASS bib | checkpoint | HH:MM, FINISH bib | HH:MM, or WITHDRAW bib | HH:MM')
     action,bib,tail=match.groups();action=action.upper()
     values=[part.strip() for part in tail.split('|')[1:]] if tail.startswith('|') else []
     if tail and not tail.startswith('|'):raise ValueError('Separate the command fields with |')
@@ -67,6 +85,7 @@ def parse(raw, command_id, config, validate):
 
 
 def check_roster_command(store,command):
+    if 'bib' not in command:return
     bib=command['bib']
     saved=store.db.execute('SELECT name FROM director_runners WHERE bib=?',(bib,)).fetchone()
     if command['action']=='ADD' and saved and saved['name']!=command['name']:
@@ -111,7 +130,17 @@ def ingest(store,text,validate):
                              (command_id,payload,raw,received))
             store.db.execute('INSERT INTO revisions(source,id,payload,raw,received) VALUES(?,?,?,?,?)',
                              (SOURCE,command_id,payload,raw,received))
-            if command['action']=='ADD':
+            if command['action'] in {'START_TIME','UNDO_START_TIME'}:
+                if command['action']=='START_TIME':
+                    start=datetime.fromisoformat(command['start_time'])
+                    store.db.execute("INSERT OR REPLACE INTO meta VALUES('director_start_override',?)",(start.isoformat(),))
+                else:
+                    start=store.base_start
+                    store.db.execute("DELETE FROM meta WHERE key='director_start_override'")
+                store.start_override=command['action']=='START_TIME'
+                store.config['start']=start
+                store.config['start_time']=start.isoformat()
+            elif command['action']=='ADD':
                 store.db.execute('INSERT OR IGNORE INTO director_runners VALUES(?,?)',(command['bib'],command['name']))
                 store.db.execute('DELETE FROM director_removed WHERE bib=?',(command['bib'],))
                 store.config['runners'][command['bib']]={'bib':command['bib'],'name':command['name']}
@@ -131,7 +160,9 @@ def ingest(store,text,validate):
 def controls(store):
     dns={};passages={};terminals={}
     for row in store.db.execute('SELECT payload FROM director_commands ORDER BY sequence'):
-        command=json.loads(row['payload']);bib=command['bib'];action=command['action']
+        command=json.loads(row['payload'])
+        if 'bib' not in command:continue
+        bib=command['bib'];action=command['action']
         if action=='REMOVE':
             dns.pop(bib,None);terminals.pop(bib,None)
             passages={key:value for key,value in passages.items() if key[0]!=bib}

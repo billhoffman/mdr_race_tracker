@@ -23,7 +23,8 @@ real databases separate. Registration is not proof that a runner started.
   tracker. Ensure radio/timing/check-in staff use the same new bib assignments.
 - [ ] Before the start, reconcile attendance and DNS decisions. Registration and
   Not reported do not confirm a runner started. If the actual start changes,
-  update the race setup; the radio "Race starting" message does not set the clock.
+  enter `START TIME 08:01` (using the actual time) in the RD log. The radio
+  "Race starting" message does not set the clock.
 - [ ] During the race, monitor source freshness and private review. ADD releases
   pending unknown-bib reports automatically on a later successful radio read.
 

@@ -4,6 +4,12 @@
 # Use assigned bibs and local time of day, not elapsed race time.
 # Append commands; deleting or editing an accepted command does not undo it.
 #
+# START TIME 08:01
+# Set the actual race start on the configured race date. Seconds are optional: START TIME 08:01:12
+# The race clock and finish elapsed times adjust; recorded passage/finish clock times stay unchanged.
+# UNDO START TIME
+# Restore the start time saved in the race setup file.
+#
 # ADD 118 | Jane Smith
 # Add a late runner. Put ADD before other commands for their bib.
 #

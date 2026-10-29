@@ -38,7 +38,7 @@ Ambiguous messages go to private review; the public page shows confirmed progres
 
 A separate [race director command log](deploy/DIRECTOR-LOG.md) supports late
 entrants, safe removal of unused RD-added runners, DNS/undo, and manual
-passage/finish/withdrawal corrections. Set
+passage/finish/withdrawal corrections and actual race start corrections. Set
 `TRACKER_DIRECTOR_DOC` on DreamHost, or use `--director-doc URL` locally. Radio
 and director inputs are polled independently; additions release pending bib
 reports automatically. The page shows a separate Did not start count.

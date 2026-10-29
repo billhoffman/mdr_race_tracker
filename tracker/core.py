@@ -85,6 +85,8 @@ class Store:
     def __init__(self, path, config):
         Path(path).parent.mkdir(parents=True,exist_ok=True)
         self.base_bibs=set(config['runners'])
+        self.base_start=config['start']
+        self.start_override=False
         self.config = {**config,'runners':{bib:dict(runner) for bib,runner in config['runners'].items()}}
         self.lock = threading.RLock()
         self.db = sqlite3.connect(path,check_same_thread=False)
@@ -231,6 +233,8 @@ class Store:
             issues, health = list(self.issues), dict(self.health)
             director_settings=director.controls(self)
             roster={bib:dict(runner) for bib,runner in self.config['runners'].items()}
+            start=self.config['start']
+            start_time_source='director' if self.start_override else 'config'
         observations = []
         for row in rows:
             event = json.loads(row['payload'])
@@ -239,7 +243,6 @@ class Store:
         director_ids={e['id'] for e in list(director_settings[1].values())+list(director_settings[2].values()) if e}
         observations=[e for e in observations if e['source']!=director.SOURCE or e['id'] in director_ids]
         observations.sort(key=lambda e:(e['time'],e['id']))
-        start = self.config['start']
         clock = max([start]+[datetime.fromisoformat(e['time']) for e in observations]) if self.config.get('clock_mode')=='latest_report' else datetime.now(start.tzinfo)
         checkpoint_distance = {key:value['distance_m'] for key,value in self.config['checkpoints'].items()}
         checkpoint_distance.update(START=0,FINISH=self.config['course']['route']['length_m'])
@@ -248,6 +251,9 @@ class Store:
             events = director.select_events(bib,[e for e in observations if bib in e['bibs']],director_settings,anomalies)
             accepted, terminal, previous = [], None, -1
             for event in events:
+                if datetime.fromisoformat(event['time']) < start:
+                    anomalies.append({'bib':bib,'id':event['id'],'message':'Observation is before the current race start; retained in audit and held for review.'})
+                    continue
                 distance = checkpoint_distance.get(event['station'],previous)
                 if terminal:
                     anomalies.append({'bib':bib,'id':event['id'],'message':'Report after finish/withdrawal; correct or void the conflicting entry'})
@@ -272,7 +278,8 @@ class Store:
         for runner in runners:
             runner['place'] = next((i+1 for i,r in enumerate(finishers) if r['bib']==runner['bib']),None)
         return {'race':{'id':self.config['race_id'],'name':self.config['name'],'test_mode':self.config.get('test_mode',True),
-                'start_time':start.isoformat(),'clock_mode':self.config.get('clock_mode'),'clock':clock.isoformat(),
+                'start_time':start.isoformat(),'configured_start_time':self.base_start.isoformat(),
+                'start_time_source':start_time_source,'clock_mode':self.config.get('clock_mode'),'clock':clock.isoformat(),
                 'elapsed_seconds':max(0,(clock-start).total_seconds()),'timezone':self.config['timezone']},
             'revision':revision,'runners':runners,'issues':issues,'anomalies':anomalies,'history':history,'source':health,
             'counts':{kind:sum(r['status']==kind for r in runners) for kind in ['finished','withdrawn','on_course','not_reported','dns']}}

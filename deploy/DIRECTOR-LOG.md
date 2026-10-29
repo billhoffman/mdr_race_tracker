@@ -14,6 +14,8 @@ times. These are examples: do not enter fictional observations in the real log.
 
 | Action | Example |
 |---|---|
+| Set/correct the actual race start | `START TIME 08:01` |
+| Restore the configured start | `UNDO START TIME` |
 | Add a late entrant | `ADD 118 \| Jane Smith` |
 | Remove an unused RD-added runner | `REMOVE 118` |
 | Mark did not start | `DNS 42` |
@@ -25,6 +27,20 @@ times. These are examples: do not enter fictional observations in the real log.
 | Remove a director passage override | `UNDO PASS 118 \| G` |
 | Remove a director finish override | `UNDO FINISH 118` |
 | Remove a director withdrawal override | `UNDO WITHDRAW 118` |
+
+Use `START TIME 08:01` if the actual start is 8:01 AM rather than the configured
+8:00 AM. Seconds are supported, for example `START TIME 08:01:12`. The command
+uses the configured race date and timezone; do not enter an elapsed time or date.
+It works without a roster and takes effect on the next successful RD read.
+
+The latest accepted start correction is stored in the race database, so it survives
+cron runs, restarts and temporary document failures. It updates the displayed race
+start, elapsed race clock and finish durations without rewriting recorded times
+of day. The original race setup file stays unchanged. Append another START TIME
+command for a further correction, or UNDO START TIME to restore that file's start.
+Observations earlier than the corrected start are retained and held for review,
+preventing negative finish durations. Badly formatted start commands leave the
+last accepted start in effect.
 
 `REMOVE` is limited to runners added through the RD log who are absent from the
 uploaded roster and have never had a recorded passage, finish or withdrawal.

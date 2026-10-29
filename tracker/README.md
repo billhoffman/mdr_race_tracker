@@ -84,12 +84,16 @@ real runners; preserve the current six-runner test so its scripted reports still
 
 ### Race director commands and late runners
 
-Use the separate [director log](../deploy/DIRECTOR-LOG.md) for ADD, REMOVE, DNS, UNDO DNS,
+Use the separate [director log](../deploy/DIRECTOR-LOG.md) for START TIME, ADD, REMOVE, DNS, UNDO DNS,
 PASS, FINISH and WITHDRAW commands. No edits to the radio team's workflow are
 needed. Add `--director-doc URL` to the server or publisher command, or configure
 `TRACKER_DIRECTOR_DOC` in the DreamHost environment. `--director-log FILE` provides
 an offline file alternative. Each source's health and last successful read are
 independent.
+
+`START TIME 08:01` corrects the actual start, adjusting the race clock and finish
+durations without changing recorded passage/finish clock times. The override
+persists in the race database; `UNDO START TIME` restores the configured start.
 
 Director additions persist in the SQLite database and survive later UltraSignup
 imports. The next poll rechecks unknown-bib radio messages. Director corrections
