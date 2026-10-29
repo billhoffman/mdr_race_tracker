@@ -16,6 +16,8 @@ real databases separate. Registration is not proof that a runner started.
   in `~/.mdr-tracker.env`, following the switch steps below.
 - [ ] Preserve the fictional test page and publish the real page once. Verify its
   real-race heading, names/bibs, configured start and both connected-source notices.
+- [ ] If using the sweeper inReach, enable [GPS tracking](SWEEPER-TRACKING.md) with
+  `TRACKER_SWEEPER_URL="https://share.garmin.com/4YNCH"` and check device tracking/MapShare.
 - [ ] Keep the one-minute cron job active and check `publish.log` after a minute.
 - [ ] Rehearse ADD, DNS/UNDO DNS and a correction with the separate offline test
   from [DIRECTOR-LOG.md](DIRECTOR-LOG.md). Keep practice data out of both race Docs.

@@ -2,6 +2,7 @@
 from datetime import datetime
 from pathlib import Path
 from .sources import read_google
+from . import sweepers
 
 
 def read_input(source,log,doc_id,token_path):
@@ -15,7 +16,7 @@ def input_error(exc,source):
 
 
 def poll_once(store,source,log=None,doc_id=None,token_path=None,expected_interval=15,
-              director_doc_id=None,director_log=None):
+              director_doc_id=None,director_log=None,sweeper_url=None,sweeper_kml=None):
     success=True
     # Read director additions first so pending radio bibs can validate this poll.
     if director_doc_id or director_log:
@@ -37,5 +38,13 @@ def poll_once(store,source,log=None,doc_id=None,token_path=None,expected_interva
     except Exception as exc:
         store.set_health(error=input_error(exc,source))
         success=False
+    if sweeper_url or sweeper_kml:
+        try:
+            success=sweepers.poll(store,sweeper_url,sweeper_kml) and success
+        except ValueError:
+            store.set_sweeper({'enabled':True,'label':'Sweep team','error':'Invalid Garmin MapShare URL'})
+            success=False
+    elif store.sweeper.get('enabled'):
+        store.set_sweeper({**store.sweeper,'enabled':False})
     store.save_review()
     return success

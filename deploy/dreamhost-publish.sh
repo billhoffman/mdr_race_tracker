@@ -19,4 +19,5 @@ if [ -n "${TRACKER_CONFIG:-}" ]; then set -- "$@" --config "$TRACKER_CONFIG"; fi
 if [ -n "${TRACKER_ROSTER:-}" ]; then set -- "$@" --roster "$TRACKER_ROSTER"; fi
 if [ -n "${TRACKER_GOOGLE_TOKEN:-}" ]; then set -- "$@" --google-token "$TRACKER_GOOGLE_TOKEN"; fi
 if [ -n "${TRACKER_DIRECTOR_DOC:-}" ]; then set -- "$@" --director-doc "$TRACKER_DIRECTOR_DOC"; fi
+if [ -n "${TRACKER_SWEEPER_URL:-}" ]; then set -- "$@" --sweeper-url "$TRACKER_SWEEPER_URL"; fi
 exec "$TRACKER_PYTHON" -m tracker.publish "$@"

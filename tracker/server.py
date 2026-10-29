@@ -37,6 +37,8 @@ def main():
     parser.add_argument('--google-token',type=Path)
     parser.add_argument('--director-doc',default=os.environ.get('TRACKER_DIRECTOR_DOC',''),help='Separate race director Google Doc ID/URL')
     parser.add_argument('--director-log',type=Path,help='Local director command file for offline testing')
+    parser.add_argument('--sweeper-url',default=os.environ.get('TRACKER_SWEEPER_URL',''))
+    parser.add_argument('--sweeper-kml',type=Path,help='Offline KML file for sweep tracking tests')
     parser.add_argument('--database',type=Path)
     parser.add_argument('--roster',type=Path,help='Imported roster JSON, overriding the config roster')
     parser.add_argument('--clock',choices=['latest_report','live'],help='Test report clock or continuously running race clock')
@@ -63,7 +65,7 @@ def main():
 
     def poll():
         while not stop.is_set():
-            poll_once(store,args.source,args.log,doc_id,args.google_token,args.interval,director_id,args.director_log)
+            poll_once(store,args.source,args.log,doc_id,args.google_token,args.interval,director_id,args.director_log,args.sweeper_url,args.sweeper_kml)
             stop.wait(args.interval)
 
     class Handler(BaseHTTPRequestHandler):

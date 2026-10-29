@@ -43,6 +43,11 @@ passage/finish/withdrawal corrections and actual race start corrections. Set
 and director inputs are polled independently; additions release pending bib
 reports automatically. The page shows a separate Did not start count.
 
+Optional [sweeper GPS tracking](deploy/SWEEPER-TRACKING.md) reads a public Garmin
+MapShare feed and displays a broom at the last reported position, with its age.
+Enable it using `TRACKER_SWEEPER_URL`; it uses the existing polling/cron job and
+keeps GPS separate from runner checkpoint observations.
+
 ## Server deployment
 
 ### DreamHost shared hosting
@@ -183,7 +188,7 @@ python3 -m unittest discover -s tracker/tests -v
 ```
 
 If Node is available, `node --check tracker/web/app.js` checks browser JS syntax.
-`node --test tracker/tests/test_clock.cjs tracker/tests/test_geometry.cjs` checks
+`node --test tracker/tests/test_clock.cjs tracker/tests/test_geometry.cjs tracker/tests/test_sweepers.cjs` checks
 clock behavior, map alignment and missing-elevation handling.
 Node is not required to run the tracker. Full local testing instructions are in
 [tracker/README.md](tracker/README.md).

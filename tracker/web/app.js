@@ -14,6 +14,14 @@ function sourceStatus(health,now=Date.now()){
  const rd=health.director?describe(health.director,'RD log'):null;
  return {error:radio.error||Boolean(rd?.error),text:radio.text+(rd?' | '+rd.text:'')};
 }
+function sweeperStatus(sweeper,now=Date.now()){
+ if(!sweeper?.enabled)return {visible:false,showMarker:false,text:'',stale:false};
+ const p=sweeper.position;
+ if(!p)return {visible:true,showMarker:false,stale:false,text:(sweeper.error?sweeper.error+' ':'')+(sweeper.off_course?'Sweep team · Latest GPS report is outside the course area.':'Sweep team · Waiting for a race-day GPS report near the course.')};
+ const age=Math.max(0,(now-new Date(p.time))/1000),stale=age>(sweeper.stale_after_seconds||1800);
+ const miles=p.distance_m===null?' · Course distance uncertain':` · Approx. mile ${(p.distance_m/1609.344).toFixed(1)}`;
+ return {visible:true,showMarker:true,stale,text:(sweeper.error?sweeper.error+' ':'')+`Sweep team · GPS ${time(p.time)} · ${Math.floor(age/60)} min ago${stale?' · Position may be outdated':''}${miles}`};
+}
 function svg(tag,attrs,parent){const e=document.createElementNS(NS,tag);for(const [k,v] of Object.entries(attrs))e.setAttribute(k,v);parent.append(e);return e}
 function label(parent,x,y,text,color,size=15){const e=svg('text',{x,y,fill:color,'font-size':size,'font-weight':600,'paint-order':'stroke',stroke:'#0e2026','stroke-width':4},parent);e.textContent=text;return e}
 let mapMode='satellite',mapCache=null,elevationCache=null;
@@ -23,6 +31,23 @@ function countMarker(parent,x,y,runners,estimated=false){
  svg('circle',{cx:x,cy:y,r:marked?19:15,fill:'#a4e4bc',stroke:marked?'#fff':estimated?'#f5b369':'#0b171c','stroke-width':3},parent);
  const e=svg('text',{x,y:y+5,'text-anchor':'middle',fill:'#0b171c','font-size':14,'font-weight':800},parent);e.textContent=runners.length;
  const title=svg('title',{},e);title.textContent=runners.map(r=>r.bib+' '+r.name).join(', ')+(estimated?' · Elevation interpolated across missing track data':'');
+}
+function broomMarker(parent,x,y,stale=false,scale=1){
+ const color=stale?'#a6bebc':'#f5b369',g=svg('g',{transform:`translate(${x},${y}) scale(${scale})`,'aria-label':'Sweep team last reported GPS position'},parent);
+ svg('circle',{cx:0,cy:0,r:24,fill:'#12252c',stroke:color,'stroke-width':2,'stroke-dasharray':stale?'4 3':'none'},g);
+ svg('line',{x1:12,y1:-17,x2:-3,y2:5,stroke:color,'stroke-width':5,'stroke-linecap':'round'},g);
+ svg('path',{d:'M-7,0 L2,6 L-4,19 L-22,7 Z',fill:color,stroke:'#0b171c','stroke-width':1},g);
+ for(const [a,b,c,d] of [[-5,6,-12,12],[-1,8,-7,15],[-10,3,-17,9]])svg('line',{x1:a,y1:b,x2:c,y2:d,stroke:'#493c2b','stroke-width':1.3},g);
+ svg('title',{},g).textContent='Sweep team · '+time(state.sweeper.position.time)+(stale?' · Last position is outdated':' · Last reported GPS position');
+}
+function drawSweeper(){
+ const status=sweeperStatus(state.sweeper),note=$('sweeper-status');note.hidden=!status.visible;note.textContent=status.text;note.classList.toggle('stale',status.stale||Boolean(state.sweeper?.error));
+ if(!mapCache)return;
+ mapCache.sweepers.replaceChildren();
+ if(!status.showMarker)return;
+ const p=state.sweeper.position,[x,y]=mapCache.project([p.longitude,p.latitude]);
+ if(x>=0&&x<=1000&&y>=0&&y<=580)broomMarker(mapCache.sweepers,x,y,status.stale);
+ else note.textContent+=' · Latest position is outside this map view.';
 }
 function drawMap(){
  if(!course||!state)return;
@@ -51,12 +76,13 @@ function drawMap(){
   locations.START=project(route[0]);locations.FINISH=project(route.at(-1));
   label(root,locations.START[0]+10,locations.START[1]-16,'START','#c6f7cf',13);
   label(root,locations.FINISH[0]+10,locations.FINISH[1]+22,'FINISH','#c6f7cf',13);
-  mapCache={course,mode:mapMode,locations,runners:svg('g',{},root)};
+  mapCache={course,mode:mapMode,locations,project,runners:svg('g',{},root),sweepers:svg('g',{},root)};
  }
  mapCache.runners.replaceChildren();
  for(const [station,runners] of Object.entries(runnerGroups())){const p=mapCache.locations[station];if(p)countMarker(mapCache.runners,p[0],p[1],runners)}
  $('course-note').textContent=`${(course.route.length_m/1609.344).toFixed(2)} mapped miles · Aid stations: ${course.checkpoints.filter(c=>c.aid_station).map(c=>c.id).join(', ')||'none marked'} · Numbered circles count runners last reported at that location`;
  drawElevation();
+ drawSweeper();
 }
 function drawElevation(){
  const root=$('elevation-profile');
@@ -79,12 +105,14 @@ function drawElevation(){
   for(let mile=0;mile<=length/1609.344;mile+=2){const xx=x(mile*1609.344);svg('line',{x1:xx,y1:195,x2:xx,y2:201,stroke:'#a6bebc'},root);label(root,xx-4,218,String(mile),'#a6bebc',11)}
   label(root,910,243,'Miles','#a6bebc',12);label(root,8,28,'Feet','#a6bebc',12);
   for(const c of course.checkpoints){const xx=x(c.distance_m);svg('line',{x1:xx,y1:35,x2:xx,y2:195,stroke:c.aid_station?'#b67b43':'#31505a','stroke-width':0.8,'stroke-dasharray':'2 5'},root);label(root,xx-5,28,c.id,c.aid_station?'#f5b369':'#c2d8d2',13)}
-  elevationCache={course,profile,x,y,runners:svg('g',{},root)};
+  elevationCache={course,profile,x,y,runners:svg('g',{},root),sweepers:svg('g',{},root)};
   $('elevation-note').textContent=(course.route.elevation_backfill?'Elevation from the course trace, with missing values filled from USGS 3DEP terrain data.':'Elevation from the supplied course trace.')+' Runner markers show confirmed course distance.'+(profile.gaps.length?' Orange dashed sections and orange-outlined markers use interpolated elevation where the track has missing values.':'');
  }
  if(!elevationCache.profile)return;
- const cache=elevationCache;cache.runners.replaceChildren();
+ const cache=elevationCache;cache.runners.replaceChildren();cache.sweepers.replaceChildren();
  for(const runners of Object.values(runnerGroups())){const distance=runners[0].distance_m;if(distance===null)continue;const height=cache.profile.at(distance);countMarker(cache.runners,cache.x(distance),cache.y(height.feet),runners,height.estimated)}
+ const sweep=sweeperStatus(state.sweeper),position=state.sweeper?.position;
+ if(sweep.showMarker&&position.distance_m!==null){const height=cache.profile.at(position.distance_m);broomMarker(cache.sweepers,cache.x(position.distance_m),cache.y(height.feet),sweep.stale,0.65)}
 }
 function drawTable(){if(!state)return;const filter=$('search').value.toLowerCase();const body=$('runners');body.replaceChildren();
 for(const r of state.runners.filter(r=>(r.bib+' '+r.name).toLowerCase().includes(filter))){const row=document.createElement('tr');row.classList.toggle('selected-row',selected===r.bib);const first=document.createElement('td'),button=document.createElement('button'),bib=document.createElement('b');bib.textContent=r.bib;button.append(bib,document.createTextNode(r.name));button.onclick=()=>{selected=selected===r.bib?null:r.bib;drawMap();drawTable()};first.append(button);row.append(first);const status=document.createElement('td'),pill=document.createElement('span');pill.className='pill '+r.status;pill.textContent={on_course:'On course',finished:'Finished #'+r.place,withdrawn:'Withdrawn',dns:'DNS',not_reported:'Not reported'}[r.status];status.append(pill);row.append(status);

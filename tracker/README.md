@@ -238,6 +238,15 @@ signed-in account can access; the tracker requests only the configured document.
 Testing-mode OAuth grants may expire and require sign-in again. The helper and
 private API path need a live Google account to verify end to end.
 
+## Sweeper GPS
+
+The optional [Garmin MapShare adapter](../deploy/SWEEPER-TRACKING.md) displays a
+broom on the map and, where course distance is unambiguous, on the elevation
+profile. Use `--sweeper-url https://share.garmin.com/4YNCH` or the DreamHost
+`TRACKER_SWEEPER_URL` setting. `--sweeper-kml FILE` supports offline testing.
+The GPS report time/age is displayed; stale positions fade. Only race-day reports
+near the route are publicly plotted. Garmin failures do not stop radio/RD updates.
+
 ## Code boundaries and current limits
 
 - `core.py`: race config, validation, corrections, SQLite history, confirmed state.

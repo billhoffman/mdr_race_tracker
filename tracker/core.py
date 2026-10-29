@@ -8,7 +8,7 @@ import sqlite3
 import threading
 from zoneinfo import ZoneInfo
 from .radio import input_rows, identify_rows, parse_report
-from . import director
+from . import director, sweepers
 
 
 def load_config(path, roster_path=None):
@@ -113,6 +113,8 @@ class Store:
         except Exception:
             self.db.close()
             raise
+        saved_sweeper=self.db.execute("SELECT value FROM meta WHERE key='sweeper_state'").fetchone()
+        self.sweeper=json.loads(saved_sweeper[0]) if saved_sweeper else {}
         self.health = {'last_attempt':None,'last_success':None,'error':None,'mode':None}
         health = self.db.execute("SELECT value FROM meta WHERE key='source_health'").fetchone()
         if health:
@@ -125,6 +127,11 @@ class Store:
         with self.lock, self.db:
             self.health.update(values)
             self.db.execute("INSERT OR REPLACE INTO meta VALUES('source_health',?)",(json.dumps(self.health),))
+
+    def set_sweeper(self,value):
+        with self.lock,self.db:
+            self.db.execute("INSERT OR REPLACE INTO meta VALUES('sweeper_state',?)",(json.dumps(value),))
+            self.sweeper=value
 
     def save_issues(self,source,issues):
         self.db.execute('INSERT OR REPLACE INTO meta VALUES(?,?)',('issues:'+source,json.dumps(issues)))
@@ -233,6 +240,7 @@ class Store:
             issues, health = list(self.issues), dict(self.health)
             director_settings=director.controls(self)
             roster={bib:dict(runner) for bib,runner in self.config['runners'].items()}
+            sweeper=sweepers.public_state(self.sweeper)
             start=self.config['start']
             start_time_source='director' if self.start_override else 'config'
         observations = []
@@ -281,7 +289,7 @@ class Store:
                 'start_time':start.isoformat(),'configured_start_time':self.base_start.isoformat(),
                 'start_time_source':start_time_source,'clock_mode':self.config.get('clock_mode'),'clock':clock.isoformat(),
                 'elapsed_seconds':max(0,(clock-start).total_seconds()),'timezone':self.config['timezone']},
-            'revision':revision,'runners':runners,'issues':issues,'anomalies':anomalies,'history':history,'source':health,
+            'sweeper':sweeper,'revision':revision,'runners':runners,'issues':issues,'anomalies':anomalies,'history':history,'source':health,
             'counts':{kind:sum(r['status']==kind for r in runners) for kind in ['finished','withdrawn','on_course','not_reported','dns']}}
 
     def audit(self):

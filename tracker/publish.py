@@ -106,12 +106,12 @@ Options -Indexes
 ''')
 
 
-def publish(config, database, web_root, source='file', log=None, doc_id=None, token_path=None, expected_interval=60, director_doc_id=None, director_log=None):
+def publish(config, database, web_root, source='file', log=None, doc_id=None, token_path=None, expected_interval=60, director_doc_id=None, director_log=None, sweeper_url=None, sweeper_kml=None):
     web_root = check_destination(web_root,database,config,token_path)
     with publisher_lock(database):
         store = Store(database,config)
         try:
-            success = poll_once(store,source,log,doc_id,token_path,expected_interval,director_doc_id,director_log)
+            success = poll_once(store,source,log,doc_id,token_path,expected_interval,director_doc_id,director_log,sweeper_url,sweeper_kml)
             snapshot = store.snapshot()
             write_site(web_root,config['course'],snapshot)
             return success, snapshot
@@ -129,6 +129,8 @@ def main():
     parser.add_argument('--google-token',type=Path)
     parser.add_argument('--director-doc',default=os.environ.get('TRACKER_DIRECTOR_DOC',''))
     parser.add_argument('--director-log',type=Path)
+    parser.add_argument('--sweeper-url',default=os.environ.get('TRACKER_SWEEPER_URL',''))
+    parser.add_argument('--sweeper-kml',type=Path,help='Offline KML file for sweep tracking tests')
     parser.add_argument('--database',type=Path,required=True)
     parser.add_argument('--web-root',type=Path,required=True)
     parser.add_argument('--expected-interval',type=int,default=60,help='Seconds between cron runs, used for freshness warnings')
@@ -148,7 +150,7 @@ def main():
         config = load_config(args.config,args.roster)
         if args.clock:
             config['clock_mode']=args.clock
-        success,state = publish(config,args.database,args.web_root,args.source,args.log,doc_id,args.google_token,args.expected_interval,director_id,args.director_log)
+        success,state = publish(config,args.database,args.web_root,args.source,args.log,doc_id,args.google_token,args.expected_interval,director_id,args.director_log,args.sweeper_url,args.sweeper_kml)
     except (ValueError,OSError,json.JSONDecodeError) as exc:
         raise SystemExit(str(exc))
     print(f'Published {config["name"]} to {args.web_root}; {state["revision"]} saved revisions.')
