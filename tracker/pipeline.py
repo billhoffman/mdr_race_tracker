@@ -2,7 +2,7 @@
 from datetime import datetime
 from pathlib import Path
 from .sources import read_google
-from . import sweepers
+from . import archive, sweepers
 
 
 def read_input(source,log,doc_id,token_path):
@@ -24,25 +24,32 @@ def poll_once(store,source,log=None,doc_id=None,token_path=None,expected_interva
         health={**store.health.get('director',{}),'last_attempt':datetime.now().astimezone().isoformat(),
                 'mode':mode,'expected_interval_seconds':expected_interval}
         try:
-            store.ingest_director(read_input(mode,director_log,director_doc_id,token_path))
+            text=read_input(mode,director_log,director_doc_id,token_path)
+            archive.record_version(store,'director-log',text)
+            store.ingest_director(text)
             health.update(last_success=datetime.now().astimezone().isoformat(),error=None)
         except Exception as exc:
             health['error']=input_error(exc,'director '+mode)
             success=False
         store.set_health(director=health)
+        archive.record_poll(store,'director-log',not bool(health.get('error')),health.get('error'))
     store.set_health(last_attempt=datetime.now().astimezone().isoformat(),mode=source,
                      expected_interval_seconds=expected_interval)
     try:
-        store.ingest(read_input(source,log,doc_id,token_path))
+        text=read_input(source,log,doc_id,token_path)
+        archive.record_version(store,'primary-log',text)
+        store.ingest(text)
         store.set_health(last_success=datetime.now().astimezone().isoformat(),error=None)
     except Exception as exc:
         store.set_health(error=input_error(exc,source))
         success=False
+    archive.record_poll(store,'primary-log',not bool(store.health.get('error')),store.health.get('error'))
     if sweeper_url or sweeper_kml:
         try:
             success=sweepers.poll(store,sweeper_url,sweeper_kml) and success
         except ValueError:
             store.set_sweeper({'enabled':True,'label':'Sweep team','error':'Invalid Garmin MapShare URL'})
+            archive.record_poll(store,'garmin',False,'Invalid Garmin MapShare URL')
             success=False
     elif store.sweeper.get('enabled'):
         store.set_sweeper({**store.sweeper,'enabled':False})

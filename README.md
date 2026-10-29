@@ -48,6 +48,12 @@ MapShare feed and displays a broom at the last reported position, with its age.
 Enable it using `TRACKER_SWEEPER_URL`; it uses the existing polling/cron job and
 keeps GPS separate from runner checkpoint observations.
 
+[Race data capture and replay export](deploy/RACE-ARCHIVE.md) retains changed
+radio/RD inputs, configuration/roster/course versions, observation/command audit,
+all received race-day sweeper GPS fixes and source-read history in the private
+SQLite database. `python3 -m tracker.export_race` creates a consistent ZIP backup
+with readable JSON data for a separate post-race movie workflow.
+
 ## Server deployment
 
 ### DreamHost shared hosting

@@ -8,7 +8,7 @@ import sqlite3
 import threading
 from zoneinfo import ZoneInfo
 from .radio import input_rows, identify_rows, parse_report
-from . import director, sweepers
+from . import archive, director, sweepers
 
 
 def load_config(path, roster_path=None):
@@ -103,6 +103,7 @@ class Store:
             raise ValueError('Database belongs to a different race; choose another database path')
         self.db.execute("INSERT OR IGNORE INTO meta VALUES('race_id',?)",(config['race_id'],))
         self.db.commit()
+        archive.initialize(self,config)
         saved_issues=self.db.execute("SELECT value FROM meta WHERE key='input_issues'").fetchone()
         self.issues = json.loads(saved_issues[0]) if saved_issues else []
         if saved_issues and not self.db.execute("SELECT 1 FROM meta WHERE key LIKE 'issues:%'").fetchone():
@@ -115,6 +116,9 @@ class Store:
             raise
         saved_sweeper=self.db.execute("SELECT value FROM meta WHERE key='sweeper_state'").fetchone()
         self.sweeper=json.loads(saved_sweeper[0]) if saved_sweeper else {}
+        if self.sweeper.get('position') and self.sweeper.get('feed_key'):
+            archive.record_gps(self,self.sweeper['feed_key'],[self.sweeper['position']],
+                self.sweeper.get('last_success'),origin='recovered-latest-state')
         self.health = {'last_attempt':None,'last_success':None,'error':None,'mode':None}
         health = self.db.execute("SELECT value FROM meta WHERE key='source_health'").fetchone()
         if health:

@@ -8,6 +8,7 @@ import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
 from zoneinfo import ZoneInfo
+from . import archive
 
 NS={'k':'http://www.opengis.net/kml/2.2'}
 STALE_SECONDS=1800
@@ -30,7 +31,7 @@ def read_kml(url):
     return data
 
 
-def latest_position(data,date,timezone_name,now=None):
+def race_positions(data,date,timezone_name,now=None):
     now=now or datetime.now(timezone.utc)
     try:root=ET.fromstring(data)
     except ET.ParseError as exc:raise ValueError('Garmin did not return valid KML') from exc
@@ -56,7 +57,12 @@ def latest_position(data,date,timezone_name,now=None):
         if device:devices.add(device)
         positions.append({'longitude':lon,'latitude':lat,'time':moment.astimezone(timezone.utc).isoformat()})
     if len(devices)>1:raise ValueError('Garmin feed has multiple devices; use a MapShare feed for the sweep device only')
-    return max(positions,key=lambda p:p['time']) if positions else None
+    return sorted(positions,key=lambda p:p['time'])
+
+
+def latest_position(data,date,timezone_name,now=None):
+    points=race_positions(data,date,timezone_name,now)
+    return points[-1] if points else None
 
 
 def locate_on_course(position,route,max_offset=500):
@@ -92,7 +98,9 @@ def poll(store,url=None,kml_file=None,now=None):
     try:
         data=Path(kml_file).read_bytes() if kml_file else read_kml(url)
         if len(data)>5_000_000:raise ValueError('Garmin feed exceeds the five-megabyte limit')
-        position=latest_position(data,store.config['date'],store.config['timezone'],now)
+        points=race_positions(data,store.config['date'],store.config['timezone'],now)
+        archive.record_gps(store,key,points,now.isoformat())
+        position=points[-1] if points else None
         if position and (not saved.get('position') or position['time']>=saved['position']['time']):
             saved['position']=locate_on_course(position,store.config['course']['route'])
         saved.update(last_success=now.isoformat(),error=None)
@@ -101,6 +109,7 @@ def poll(store,url=None,kml_file=None,now=None):
         saved['error']=str(exc) if isinstance(exc,ValueError) else 'Could not read Garmin tracking feed; last GPS report retained.'
         success=False
     store.set_sweeper(saved)
+    archive.record_poll(store,'garmin',success,saved.get('error'))
     return success
 
 

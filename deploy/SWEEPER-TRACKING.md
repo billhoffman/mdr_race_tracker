@@ -50,7 +50,9 @@ shown. Otherwise a smaller broom also appears on the course elevation profile.
 Garmin tracking is independent of runner observations and never changes runner
 counts, DNS decisions or checkpoints. If Garmin is unavailable, radio/director
 processing continues and the last GPS fix is retained with an error/age notice.
-The position survives cron runs and restarts. Removing the environment setting
+The position survives cron runs and restarts. Every distinct race-day fix returned
+by Garmin is also saved privately for the [post-race replay export](RACE-ARCHIVE.md),
+including older fixes received later. Removing the environment setting
 hides the broom again. Raw messages, device identifiers and raw KML are not
 published or committed to Git.
 

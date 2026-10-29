@@ -247,6 +247,12 @@ profile. Use `--sweeper-url https://share.garmin.com/4YNCH` or the DreamHost
 The GPS report time/age is displayed; stale positions fade. Only race-day reports
 near the route are publicly plotted. Garmin failures do not stop radio/RD updates.
 
+## Replay data archive
+
+See [capture and export instructions](../deploy/RACE-ARCHIVE.md). Recording is
+automatic in the existing SQLite database. Exporting creates a private portable
+backup for a separate movie workflow and never publishes full histories.
+
 ## Code boundaries and current limits
 
 - `core.py`: race config, validation, corrections, SQLite history, confirmed state.

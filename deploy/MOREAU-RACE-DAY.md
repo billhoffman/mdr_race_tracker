@@ -288,3 +288,10 @@ The local staff view also checks backwards progress and reports after withdrawal
 or finish. A separate prose correction is flagged for review; after checking it,
 the director can edit the original table row. The spectator site contains no raw
 radio messages or review details.
+
+## Save the race for the movie
+
+The private database now retains full changed inputs, observation/director audit,
+course/roster/configuration versions and all received race-day sweeper GPS fixes.
+Deploy archive support before race day and follow the [post-race export and
+download steps](RACE-ARCHIVE.md) to bring a consistent ZIP backup to your Mac.
