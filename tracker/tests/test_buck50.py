@@ -107,7 +107,7 @@ class Buck50RegressionTests(unittest.TestCase):
     def test_confirmed_summary_preserves_radio_gap_and_drops(self):
         self.ingest()
         snapshot=self.store.snapshot()
-        self.assertEqual(snapshot['counts'],{'finished':42,'withdrawn':4,'on_course':1,'not_reported':0})
+        self.assertEqual(snapshot['counts'],{'finished':42,'withdrawn':4,'on_course':1,'not_reported':0,'dns':0})
         runners={r['bib']:r for r in snapshot['runners']}
         self.assertEqual(runners['47']['status'],'on_course')
         self.assertEqual(runners['12']['place'],1)

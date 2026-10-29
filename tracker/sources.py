@@ -113,7 +113,7 @@ def html_input(html):
     table=table_input(parser.rows)
     if table is not None:return table
     text=''.join(parser.text)
-    if not text.strip() or re.search(r'accounts\.google\.com|ServiceLogin',html,re.I):
+    if re.search(r'accounts\.google\.com|ServiceLogin',html,re.I):
         raise ValueError('Google returned a login page instead of the radio document. Check sharing or use Google sign-in.')
     return text
 

@@ -40,3 +40,34 @@ class RosterTests(unittest.TestCase):
 
 
 if __name__=='__main__':unittest.main()
+
+class RosterUpdateTests(unittest.TestCase):
+    def setUp(self):
+        self.temp=tempfile.TemporaryDirectory();self.path=Path(self.temp.name)/'roster.json'
+    def tearDown(self):self.temp.cleanup()
+    def test_reimport_keeps_late_additions_and_has_backup(self):
+        from tracker.roster import update_roster
+        update_roster(self.path,[{'bib':'101','name':'Alex Demo'}])
+        update_roster(self.path,[{'bib':'107','name':'Late Runner'}],require_existing=True)
+        result=update_roster(self.path,[{'bib':'101','name':'Alex Demo'},{'bib':'108','name':'New Export'}])
+        self.assertEqual(result['total'],3)
+        self.assertEqual(result['retained'],1)
+        self.assertEqual({r['bib'] for r in json.loads(self.path.read_text())},{'101','107','108'})
+        self.assertEqual(len(json.loads(Path(str(self.path)+'.bak').read_text())),2)
+    def test_reassignment_and_missing_initial_roster_are_rejected(self):
+        from tracker.roster import update_roster
+        with self.assertRaisesRegex(ValueError,'initial UltraSignup'):
+            update_roster(self.path,[{'bib':'107','name':'Late Runner'}],require_existing=True)
+        update_roster(self.path,[{'bib':'101','name':'Alex Demo'}])
+        before=self.path.read_text()
+        with self.assertRaisesRegex(ValueError,'assignments changed'):
+            update_roster(self.path,[{'bib':'101','name':'Other Runner'}])
+        self.assertEqual(self.path.read_text(),before)
+    def test_failed_write_keeps_previous_roster_valid(self):
+        from tracker.roster import update_roster
+        from unittest.mock import patch
+        update_roster(self.path,[{'bib':'101','name':'Alex Demo'}])
+        before=self.path.read_text()
+        with patch('tracker.roster.os.replace',side_effect=OSError('simulated disk failure')):
+            with self.assertRaises(OSError):update_roster(self.path,[{'bib':'107','name':'Late Runner'}])
+        self.assertEqual(self.path.read_text(),before)

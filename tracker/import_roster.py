@@ -1,11 +1,11 @@
 """Import bibs and names: python3 -m tracker.import_roster EXPORT --output ROSTER.json"""
 import argparse
 import csv
-import json
 from pathlib import Path
 import re
 import xml.etree.ElementTree as ET
 import zipfile
+from .roster import update_roster
 
 
 def normalize(value):
@@ -90,18 +90,15 @@ def main():
         roster, skipped = import_roster(args.export)
     except (ValueError,KeyError,FileNotFoundError,zipfile.BadZipFile) as exc:
         raise SystemExit(str(exc))
-    if args.output.exists():
-        old = json.loads(args.output.read_text())
-        old_map = {r['bib']:r['name'] for r in old}
-        changed = [r['bib'] for r in roster if r['bib'] in old_map and old_map[r['bib']]!=r['name']]
-        if changed:
-            raise SystemExit('Existing bib/name assignments changed: '+', '.join(changed)+'. Use a new output filename and review before replacing the roster.')
-    args.output.parent.mkdir(parents=True,exist_ok=True)
-    args.output.write_text(json.dumps(roster,indent=2)+'\n')
-    print(f'Imported {len(roster)} runners into {args.output}.')
+    try:
+        result=update_roster(args.output,roster)
+    except (ValueError,OSError) as exc:
+        raise SystemExit(str(exc))
+    print(f'Imported {len(roster)} export runners; {result["added"]} added; {result["total"]} total in {args.output}.')
+    print(f'Preserved {result["retained"]} existing runners absent from this export; removals require deliberate review.')
     print(f'Skipped: {skipped["no_bib"]} without bibs; {skipped["removed"]} removed; {skipped["duplicates"]} duplicate rows.')
     print('Only bib numbers and names were saved; no contact or medical details.')
-    print('Restart the tracker after importing. Registration is not confirmation that a runner started.')
+    print('The next DreamHost publish loads the roster; restart a continuous local server. Registration is not confirmation that a runner started.')
 
 
 if __name__=='__main__':

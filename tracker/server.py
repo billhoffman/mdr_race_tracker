@@ -21,6 +21,10 @@ def public_snapshot(snapshot):
     snapshot['source'] = dict(snapshot['source'])
     if snapshot['source'].get('error'):
         snapshot['source']['error'] = 'Source update failed. Showing last confirmed observations.'
+    if snapshot['source'].get('director'):
+        snapshot['source']['director']=dict(snapshot['source']['director'])
+        if snapshot['source']['director'].get('error'):
+            snapshot['source']['director']['error']='Director log update failed. Last confirmed director commands retained.'
     return snapshot
 
 
@@ -31,6 +35,8 @@ def main():
     parser.add_argument('--log',type=Path,default=ROOT/'races/moreau-test/live-log.txt')
     parser.add_argument('--google-doc',default=os.environ.get('TRACKER_GOOGLE_DOC',''),help='Google Doc ID or URL (or TRACKER_GOOGLE_DOC environment variable)')
     parser.add_argument('--google-token',type=Path)
+    parser.add_argument('--director-doc',default=os.environ.get('TRACKER_DIRECTOR_DOC',''),help='Separate race director Google Doc ID/URL')
+    parser.add_argument('--director-log',type=Path,help='Local director command file for offline testing')
     parser.add_argument('--database',type=Path)
     parser.add_argument('--roster',type=Path,help='Imported roster JSON, overriding the config roster')
     parser.add_argument('--clock',choices=['latest_report','live'],help='Test report clock or continuously running race clock')
@@ -45,6 +51,10 @@ def main():
     doc_id = match[1] if match else args.google_doc
     if args.source=='google' and not re.fullmatch(r'[\w-]+',doc_id):
         parser.error('Supply --google-doc ID_OR_URL or set TRACKER_GOOGLE_DOC')
+    director_match=re.search(r'/document/d/([\w-]+)',args.director_doc)
+    director_id=(director_match[1] if director_match else args.director_doc) if not args.director_log else None
+    if director_id and not re.fullmatch(r'[\w-]+',director_id):
+        parser.error('Supply --director-doc ID_OR_URL')
     config = load_config(args.config,args.roster)
     if args.clock:
         config['clock_mode'] = args.clock
@@ -53,7 +63,7 @@ def main():
 
     def poll():
         while not stop.is_set():
-            poll_once(store,args.source,args.log,doc_id,args.google_token,args.interval)
+            poll_once(store,args.source,args.log,doc_id,args.google_token,args.interval,director_id,args.director_log)
             stop.wait(args.interval)
 
     class Handler(BaseHTTPRequestHandler):

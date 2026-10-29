@@ -89,7 +89,7 @@ class TrackerTests(unittest.TestCase):
         for block in re.findall(r'```text\n(.*?)```',script,re.S):
             for line in block.strip().splitlines():reports[line.split('|')[0].strip()]=line
             self.store.ingest('\n'.join(reports.values()))
-        self.assertEqual(self.store.snapshot()['counts'],{'finished':5,'withdrawn':1,'on_course':0,'not_reported':0})
+        self.assertEqual(self.store.snapshot()['counts'],{'finished':5,'withdrawn':1,'on_course':0,'not_reported':0,'dns':0})
         self.assertEqual(self.store.snapshot()['race']['elapsed_seconds'],4*3600+20*60)
         self.assertFalse(self.store.snapshot()['issues'])
         self.assertFalse(self.store.snapshot()['anomalies'])

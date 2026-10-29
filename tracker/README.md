@@ -74,13 +74,34 @@ python3 -m tracker.import_roster 'MoreauExport.xlsx' --output races/moreau-2026/
 
 The importer saves only names and bib numbers. It rejects conflicting duplicate bibs,
 skips rows marked removed and reports registrations without bibs. Registration alone
-does not mark a runner as started. A later export can update the file; restart the
-tracker afterward. A changed name on an existing bib requires explicit review.
+does not mark a runner as started. A later export merges additions and retains existing runners missing from that
+export. The next cron publish loads it; restart a continuous server afterward. A changed name on an existing bib requires explicit review.
 
 Load an imported roster with `--roster races/moreau-2026/roster.json` or set
 `roster_file` in the race configuration (relative to that config's directory).
 Use the actual Moreau race configuration and a separate database when switching to
 real runners; preserve the current six-runner test so its scripted reports still work.
+
+### Race director commands and late runners
+
+Use the separate [director log](../deploy/DIRECTOR-LOG.md) for ADD, DNS, UNDO DNS,
+PASS, FINISH and WITHDRAW commands. No edits to the radio team's workflow are
+needed. Add `--director-doc URL` to the server or publisher command, or configure
+`TRACKER_DIRECTOR_DOC` in the DreamHost environment. `--director-log FILE` provides
+an offline file alternative. Each source's health and last successful read are
+independent.
+
+Director additions persist in the SQLite database and survive later UltraSignup
+imports. The next poll rechecks unknown-bib radio messages. Director corrections
+supersede matching radio reports; originals remain in the audit. DNS takes
+precedence until UNDO DNS. Append commands; deleting a line does not retract it.
+
+If the RD document is unavailable, a hosting-shell alternative is
+`python3 -m tracker.add_runner`: it prompts for bib/name and adds to the existing
+roster JSON. A subsequent roster import merges additions and preserves existing
+runners; reassignment is rejected. Updates are atomic, with a `.bak` of the prior
+file. The next cron publish loads file additions; continuous servers need a restart
+for changes to the roster file (RD additions work without a restart).
 
 ### Existing radio operators' TIME / MESSAGE table
 
@@ -213,6 +234,8 @@ private API path need a live Google account to verify end to end.
 ## Code boundaries and current limits
 
 - `core.py`: race config, validation, corrections, SQLite history, confirmed state.
+- `director.py`: director commands, persistent additions, DNS and explicit overrides.
+- `roster.py`: atomic additive file-roster updates and bib reassignment checks.
 - `radio.py`: table-row identities and conservative natural radio-message parsing.
 - `sources.py`: Google Doc and text extraction. Another input adapter can feed the
   same observations later.

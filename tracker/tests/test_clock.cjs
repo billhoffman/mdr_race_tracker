@@ -29,3 +29,11 @@ test('a withdrawal with unknown location keeps its last confirmed marker',()=>{
  assert.deepEqual(Object.keys(groups),['B']);
  assert.equal(groups.B[0].bib,'101');
 });
+test('a failed director source remains visible when radio reads succeed',()=>{
+ const sandbox={window:{},performance:{now:()=>0},result:null};
+ const prefix=source.slice(0,source.indexOf('function svg('));
+ vm.runInNewContext(prefix+'\nresult=sourceStatus({mode:"google",last_success:"2026-10-31T10:00:00Z",director:{last_success:"2026-10-31T10:00:00Z",error:"Director update failed"}},Date.parse("2026-10-31T10:00:10Z"));',sandbox);
+ assert.equal(sandbox.result.error,true);
+ assert.match(sandbox.result.text,/Radio log connected/);
+ assert.match(sandbox.result.text,/RD log: Director update failed/);
+});

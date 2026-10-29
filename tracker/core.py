@@ -8,6 +8,7 @@ import sqlite3
 import threading
 from zoneinfo import ZoneInfo
 from .radio import input_rows, identify_rows, parse_report
+from . import director
 
 
 def load_config(path, roster_path=None):
@@ -83,7 +84,7 @@ def parse_line(line, config):
 class Store:
     def __init__(self, path, config):
         Path(path).parent.mkdir(parents=True,exist_ok=True)
-        self.config = config
+        self.config = {**config,'runners':{bib:dict(runner) for bib,runner in config['runners'].items()}}
         self.lock = threading.RLock()
         self.db = sqlite3.connect(path,check_same_thread=False)
         self.db.row_factory = sqlite3.Row
@@ -101,6 +102,14 @@ class Store:
         self.db.commit()
         saved_issues=self.db.execute("SELECT value FROM meta WHERE key='input_issues'").fetchone()
         self.issues = json.loads(saved_issues[0]) if saved_issues else []
+        if saved_issues and not self.db.execute("SELECT 1 FROM meta WHERE key LIKE 'issues:%'").fetchone():
+            self.db.execute("INSERT INTO meta VALUES('issues:primary-log',?)",(saved_issues[0],))
+            self.db.commit()
+        try:
+            director.initialize(self)
+        except Exception:
+            self.db.close()
+            raise
         self.health = {'last_attempt':None,'last_success':None,'error':None,'mode':None}
         health = self.db.execute("SELECT value FROM meta WHERE key='source_health'").fetchone()
         if health:
@@ -113,6 +122,21 @@ class Store:
         with self.lock, self.db:
             self.health.update(values)
             self.db.execute("INSERT OR REPLACE INTO meta VALUES('source_health',?)",(json.dumps(self.health),))
+
+    def save_issues(self,source,issues):
+        self.db.execute('INSERT OR REPLACE INTO meta VALUES(?,?)',('issues:'+source,json.dumps(issues)))
+        self.issues=[]
+        for row in self.db.execute("SELECT key,value FROM meta WHERE key LIKE 'issues:%' ORDER BY key"):
+            self.issues.extend({**issue,'source':row['key'][7:]} for issue in json.loads(row['value']))
+        self.db.execute("INSERT OR REPLACE INTO meta VALUES('input_issues',?)",(json.dumps(self.issues),))
+
+    def ingest_director(self,text):
+        return director.ingest(self,text,parse_line)
+
+    def save_review(self):
+        anomalies=self.snapshot()['anomalies']
+        with self.lock,self.db:
+            self.db.execute("INSERT OR REPLACE INTO meta VALUES('review_anomalies',?)",(json.dumps(anomalies),))
 
     def ingest(self, text, source='primary-log'):
         rows=input_rows(text)
@@ -149,8 +173,7 @@ class Store:
                     (source,event['id'],payload,raw,received,int(not event['void'])))
                 self.db.execute('INSERT INTO revisions(source,id,payload,raw,received) VALUES(?,?,?,?,?)',
                     (source,event['id'],payload,raw,received))
-            self.issues = issues
-            self.db.execute("INSERT OR REPLACE INTO meta VALUES('input_issues',?)",(json.dumps(issues),))
+            self.save_issues(source,issues)
         return issues
 
     def ingest_radio(self, rows, source):
@@ -196,8 +219,7 @@ class Store:
                     'message':'Previously accepted row is missing. Last confirmed observations retained; restore and edit the original row to correct it.'})
             self.db.execute('INSERT OR REPLACE INTO meta VALUES(?,?)',
                             (key,json.dumps({'rows':mapped,'next_id':next_id,'retired':retired})))
-            self.issues=issues
-            self.db.execute("INSERT OR REPLACE INTO meta VALUES('input_issues',?)",(json.dumps(issues),))
+            self.save_issues(source,issues)
         return issues
 
     def snapshot(self):
@@ -206,19 +228,23 @@ class Store:
             revision = self.db.execute('SELECT COUNT(*) FROM revisions').fetchone()[0]
             history = [dict(r) for r in self.db.execute('SELECT sequence,id,raw,received FROM revisions ORDER BY sequence DESC LIMIT 12')]
             issues, health = list(self.issues), dict(self.health)
+            director_settings=director.controls(self)
+            roster={bib:dict(runner) for bib,runner in self.config['runners'].items()}
         observations = []
         for row in rows:
             event = json.loads(row['payload'])
             event.update(received=row['received'],source=row['source'])
             observations.append(event)
+        director_ids={e['id'] for e in list(director_settings[1].values())+list(director_settings[2].values()) if e}
+        observations=[e for e in observations if e['source']!=director.SOURCE or e['id'] in director_ids]
         observations.sort(key=lambda e:(e['time'],e['id']))
         start = self.config['start']
         clock = max([start]+[datetime.fromisoformat(e['time']) for e in observations]) if self.config.get('clock_mode')=='latest_report' else datetime.now(start.tzinfo)
         checkpoint_distance = {key:value['distance_m'] for key,value in self.config['checkpoints'].items()}
         checkpoint_distance.update(START=0,FINISH=self.config['course']['route']['length_m'])
         runners, anomalies = [], []
-        for bib, runner in self.config['runners'].items():
-            events = [e for e in observations if bib in e['bibs']]
+        for bib, runner in roster.items():
+            events = director.select_events(bib,[e for e in observations if bib in e['bibs']],director_settings,anomalies)
             accepted, terminal, previous = [], None, -1
             for event in events:
                 distance = checkpoint_distance.get(event['station'],previous)
@@ -227,14 +253,15 @@ class Store:
                     continue
                 if distance < previous:
                     anomalies.append({'bib':bib,'id':event['id'],'message':'Checkpoint is behind a prior confirmed passage; review entry'})
-                    continue
+                    if event['source']!=director.SOURCE or event['kind'] not in {'FINISH','WITHDRAWN'}:
+                        continue
                 accepted.append(event)
                 previous = distance
                 if event['kind'] in {'FINISH','WITHDRAWN'}:
                     terminal = event['kind']
             last = accepted[-1] if accepted else None
             position = next((e for e in reversed(accepted) if e['station'] is not None),None)
-            status = 'finished' if terminal=='FINISH' else 'withdrawn' if terminal else 'on_course' if last else 'not_reported'
+            status = 'dns' if director_settings[0].get(bib) else 'finished' if terminal=='FINISH' else 'withdrawn' if terminal else 'on_course' if last else 'not_reported'
             runners.append({**runner,'bib':bib,'status':status,'last':last,
                 'position':position,
                 'distance_m':checkpoint_distance[position['station']] if position else None,
@@ -247,7 +274,7 @@ class Store:
                 'start_time':start.isoformat(),'clock_mode':self.config.get('clock_mode'),'clock':clock.isoformat(),
                 'elapsed_seconds':max(0,(clock-start).total_seconds()),'timezone':self.config['timezone']},
             'revision':revision,'runners':runners,'issues':issues,'anomalies':anomalies,'history':history,'source':health,
-            'counts':{kind:sum(r['status']==kind for r in runners) for kind in ['finished','withdrawn','on_course','not_reported']}}
+            'counts':{kind:sum(r['status']==kind for r in runners) for kind in ['finished','withdrawn','on_course','not_reported','dns']}}
 
     def audit(self):
         with self.lock:

@@ -36,6 +36,12 @@ the natural messages used at Buck 50. Operators do not need to change their form
 See [radio table support and a fictional test](tracker/README.md#existing-radio-operators-time--message-table).
 Ambiguous messages go to private review; the public page shows confirmed progress.
 
+A separate [race director command log](deploy/DIRECTOR-LOG.md) supports late
+entrants, DNS/undo, and manual passage/finish/withdrawal corrections. Set
+`TRACKER_DIRECTOR_DOC` on DreamHost, or use `--director-doc URL` locally. Radio
+and director inputs are polled independently; additions release pending bib
+reports automatically. The page shows a separate Did not start count.
+
 ## Server deployment
 
 ### DreamHost shared hosting

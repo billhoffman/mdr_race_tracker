@@ -14,6 +14,7 @@ def review(database):
         meta=dict(db.execute('SELECT key,value FROM meta'))
         issues=json.loads(meta.get('input_issues','[]'))
         health=json.loads(meta.get('source_health','{}'))
+        issues.extend({'line':None,'text':'Bib '+a['bib']+', '+a['id'],'message':a['message'],'source':'progression'} for a in json.loads(meta.get('review_anomalies','[]')))
     return issues,health
 
 
@@ -24,11 +25,12 @@ def main():
     try:issues,health=review(args.database)
     except (ValueError,sqlite3.Error) as exc:raise SystemExit(str(exc))
     if health.get('error'):print('SOURCE ERROR: '+health['error'])
-    print(f'{len(issues)} radio/input reports need review.')
+    if health.get('director',{}).get('error'):print('DIRECTOR SOURCE ERROR: '+health['director']['error'])
+    print(f'{len(issues)} input/progression reports need review.')
     for issue in issues:
-        label=issue.get('id') or ('line '+str(issue.get('line')))
+        label=(issue.get('source','input')+' / ')+(issue.get('id') or ('line '+str(issue.get('line'))))
         print(f'\n{label}: {issue["message"]}\n  {issue["text"]}')
-    print('\nRunner progression conflicts, if any, are available in the local staff view.')
+
 
 
 if __name__=='__main__':main()

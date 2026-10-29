@@ -19,7 +19,8 @@ data/
 *.pem
 *client_secret*.json
 *credentials*.json
-races/*/roster.json
+races/*/roster.json*
+races/*/.roster-*
 races/*/race.local.json*
 races/*/*.elevation.local.json
 races/*/live.local.txt

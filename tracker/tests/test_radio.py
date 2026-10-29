@@ -160,7 +160,7 @@ class RadioTests(unittest.TestCase):
         self.assertEqual(self.runner()['last']['station'],'A')
     def test_fictional_radio_script(self):
         self.assertFalse(self.store.ingest((ROOT/'races/moreau-test/radio-log.txt').read_text()))
-        self.assertEqual(self.store.snapshot()['counts'],{'finished':5,'withdrawn':1,'on_course':0,'not_reported':0})
+        self.assertEqual(self.store.snapshot()['counts'],{'finished':5,'withdrawn':1,'on_course':0,'not_reported':0,'dns':0})
         self.assertFalse(self.store.snapshot()['anomalies'])
         revision=self.store.snapshot()['revision']
         self.store.ingest((ROOT/'races/moreau-test/radio-log.txt').read_text())

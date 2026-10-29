@@ -106,12 +106,12 @@ Options -Indexes
 ''')
 
 
-def publish(config, database, web_root, source='file', log=None, doc_id=None, token_path=None, expected_interval=60):
+def publish(config, database, web_root, source='file', log=None, doc_id=None, token_path=None, expected_interval=60, director_doc_id=None, director_log=None):
     web_root = check_destination(web_root,database,config,token_path)
     with publisher_lock(database):
         store = Store(database,config)
         try:
-            success = poll_once(store,source,log,doc_id,token_path,expected_interval)
+            success = poll_once(store,source,log,doc_id,token_path,expected_interval,director_doc_id,director_log)
             snapshot = store.snapshot()
             write_site(web_root,config['course'],snapshot)
             return success, snapshot
@@ -127,6 +127,8 @@ def main():
     parser.add_argument('--log',type=Path,default=ROOT/'races/moreau-test/live-log.txt')
     parser.add_argument('--google-doc',default=os.environ.get('TRACKER_GOOGLE_DOC',''))
     parser.add_argument('--google-token',type=Path)
+    parser.add_argument('--director-doc',default=os.environ.get('TRACKER_DIRECTOR_DOC',''))
+    parser.add_argument('--director-log',type=Path)
     parser.add_argument('--database',type=Path,required=True)
     parser.add_argument('--web-root',type=Path,required=True)
     parser.add_argument('--expected-interval',type=int,default=60,help='Seconds between cron runs, used for freshness warnings')
@@ -136,13 +138,17 @@ def main():
     doc_id = match[1] if match else args.google_doc
     if args.source=='google' and not re.fullmatch(r'[\w-]+',doc_id):
         parser.error('Supply --google-doc ID_OR_URL or TRACKER_GOOGLE_DOC')
+    director_match=re.search(r'/document/d/([\w-]+)',args.director_doc)
+    director_id=(director_match[1] if director_match else args.director_doc) if not args.director_log else None
+    if director_id and not re.fullmatch(r'[\w-]+',director_id):
+        parser.error('Supply --director-doc ID_OR_URL')
     if args.expected_interval<1:
         parser.error('Expected interval must be positive')
     try:
         config = load_config(args.config,args.roster)
         if args.clock:
             config['clock_mode']=args.clock
-        success,state = publish(config,args.database,args.web_root,args.source,args.log,doc_id,args.google_token,args.expected_interval)
+        success,state = publish(config,args.database,args.web_root,args.source,args.log,doc_id,args.google_token,args.expected_interval,director_id,args.director_log)
     except (ValueError,OSError,json.JSONDecodeError) as exc:
         raise SystemExit(str(exc))
     print(f'Published {config["name"]} to {args.web_root}; {state["revision"]} saved revisions.')
@@ -150,7 +156,7 @@ def main():
         print(f"Private review: {len(state['issues'])} input reports, {len(state['anomalies'])} runner progression conflicts.")
         print('Inspect input reports with: python3 -m tracker.review --database '+str(args.database))
     if not success:
-        raise SystemExit('Input read failed. Published last confirmed observations with a source-error notice.')
+        raise SystemExit('Input read failed. Published last confirmed observations and director commands with a source-error notice.')
 
 
 if __name__=='__main__':

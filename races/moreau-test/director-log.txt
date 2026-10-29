@@ -1,0 +1,6 @@
+# Fictional offline rehearsal. Do not paste into the actual race-day Doc.
+ADD 107 | Late Demo
+DNS 107
+UNDO DNS 107
+PASS 107 | A | 09:20
+FINISH 107 | 11:30

@@ -6,6 +6,27 @@ The site currently runs the fictional six-runner test. These instructions switch
 it to the real Moreau race once UltraSignup bibs are available. Keep the test and
 real databases separate. Registration is not proof that a runner started.
 
+## Readiness checklist
+
+- [ ] Push the tested code from the Mac, then pull it on DreamHost.
+- [ ] Assign 2026 bibs and import the actual 2026 registration roster. Historical
+  2020–2025 finish lists are separate reference data, not this race's roster.
+- [ ] Run `python3 -m tracker.setup_race` with the confirmed October 31 start time.
+- [ ] Set both Google Doc URLs, the real config/roster and a separate real database
+  in `~/.mdr-tracker.env`, following the switch steps below.
+- [ ] Preserve the fictional test page and publish the real page once. Verify its
+  real-race heading, names/bibs, configured start and both connected-source notices.
+- [ ] Keep the one-minute cron job active and check `publish.log` after a minute.
+- [ ] Rehearse ADD, DNS/UNDO DNS and a correction with the separate offline test
+  from [DIRECTOR-LOG.md](DIRECTOR-LOG.md). Keep practice data out of both race Docs.
+- [ ] Give race staff editing access to the RD log and link-viewer access to the
+  tracker. Ensure radio/timing/check-in staff use the same new bib assignments.
+- [ ] Before the start, reconcile attendance and DNS decisions. Registration and
+  Not reported do not confirm a runner started. If the actual start changes,
+  update the race setup; the radio "Race starting" message does not set the clock.
+- [ ] During the race, monitor source freshness and private review. ADD releases
+  pending unknown-bib reports automatically on a later successful radio read.
+
 ## 1. Log in to DreamHost
 
 From Terminal on your Mac:
@@ -155,10 +176,11 @@ Keep the working REPO, PYTHON and WEB_ROOT values. Set/uncomment these values:
 TRACKER_CONFIG="$TRACKER_REPO/races/moreau-2026/race.local.json"
 TRACKER_ROSTER="$TRACKER_REPO/races/moreau-2026/roster.json"
 TRACKER_DATABASE="$HOME/mdr-tracker-data/moreau-2026.sqlite3"
-TRACKER_GOOGLE_DOC="PASTE_THE_NEW_RACE_DAY_DOC_URL_HERE"
+TRACKER_GOOGLE_DOC="https://docs.google.com/document/d/1tP6AB0TFm3xSzfCjAdRv9Tek6zcI7-6_vIaPBeKtSaA/edit"
+TRACKER_DIRECTOR_DOC="https://docs.google.com/document/d/1wUvZ85JdPXbxxoOp-JBgTGqv2LypBgUackv9q7ktpK4/edit"
 ```
 
-Paste the actual new Doc URL in that last line. Save and exit. The real database
+The first Doc is the radio log; the second is the director command log. Save and exit. The real database
 filename is deliberately different from `moreau-test.sqlite3`.
 
 ## 8. Preserve the test page and publish the real page
@@ -203,9 +225,21 @@ after publication; runner positions remain at last confirmed checkpoints.
 
 ## Late registrations and bib changes
 
+For the simplest race-day workflow, enter `ADD bib | Full Name` in the separate
+[RD command log](DIRECTOR-LOG.md), then tell net control and timing/check-in staff.
+The next publish adds that runner and rechecks pending radio messages. Use
+`DNS bib` and `UNDO DNS bib` there for start-list decisions. RD additions persist
+in the race database, independently of the exported roster file.
+
+If Google access is unavailable, run `python3 -m tracker.add_runner` on DreamHost;
+it prompts for bib/name and updates the existing roster file. File changes load on
+the next publish. Do not reuse an assigned bib for another runner.
+
+
 Export UltraSignup again, upload it privately, and rerun the same import command.
 For new runners, check the new count; the next cron run loads them automatically.
-Keep the prior roster before importing so removed entrants can be reviewed.
+Imports preserve existing runners absent from a later export; removals require review.
+Roster-file updates are atomic and retain a `.bak` of the prior version.
 
 Once reports have been recorded, do not remove their runners from the roster or
 reassign their bibs: the history is keyed by bib. If the import detects a changed
