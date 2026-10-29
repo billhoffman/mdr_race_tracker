@@ -1,0 +1,39 @@
+# RACE DIRECTOR COMMAND REFERENCE
+# Lines beginning with # are comments and do not run.
+# Enter actual commands below this reference, one per paragraph, without #.
+# Use assigned bibs and local time of day, not elapsed race time.
+# Append commands; deleting or editing an accepted command does not undo it.
+#
+# ADD 118 | Jane Smith
+# Add a late runner. Put ADD before other commands for their bib.
+#
+# REMOVE 118
+# Remove an RD-added runner who is absent from the uploaded roster and has no race observations.
+# DNS alone does not prevent REMOVE. PASS, FINISH or WITHDRAW history does, even if later undone.
+#
+# DNS 118
+# Mark a runner as did not start.
+# UNDO DNS 118
+# Reverse a DNS decision and restore report-based status.
+#
+# PASS 118 | G | 11:25
+# Record/correct passage at a checkpoint. Other radio checkpoint reports remain in use.
+# UNDO PASS 118 | G
+# Remove the director override for that checkpoint and restore radio reports.
+#
+# FINISH 118 | 13:42:10
+# Record/correct a finish time.
+# UNDO FINISH 118
+# Remove the director finish override and restore radio-based status.
+#
+# WITHDRAW 118 | 11:30
+# Record a withdrawal with no known location.
+# WITHDRAW 118 | G | 11:30
+# Record a withdrawal at a known checkpoint.
+# UNDO WITHDRAW 118
+# Remove the director withdrawal override and restore radio-based status.
+#
+# SAFE ADD/REMOVE TEST: choose an unused bib absent from the real roster.
+# Example: ADD 99999 | TEST RUNNER
+# Wait for that runner to appear after a successful publish, then append: REMOVE 99999
+# Keep both accepted commands in this log. Do not give the test runner any race observations.

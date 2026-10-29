@@ -15,6 +15,7 @@ times. These are examples: do not enter fictional observations in the real log.
 | Action | Example |
 |---|---|
 | Add a late entrant | `ADD 118 \| Jane Smith` |
+| Remove an unused RD-added runner | `REMOVE 118` |
 | Mark did not start | `DNS 42` |
 | Reverse an incorrect DNS | `UNDO DNS 42` |
 | Record/correct a passage | `PASS 118 \| G \| 11:25` |
@@ -24,6 +25,25 @@ times. These are examples: do not enter fictional observations in the real log.
 | Remove a director passage override | `UNDO PASS 118 \| G` |
 | Remove a director finish override | `UNDO FINISH 118` |
 | Remove a director withdrawal override | `UNDO WITHDRAW 118` |
+
+`REMOVE` is limited to runners added through the RD log who are absent from the
+uploaded roster and have never had a recorded passage, finish or withdrawal.
+Voiding or undoing an observation does not make that bib removable. DNS alone does
+not prevent removal. The runner disappears from the public roster, but their
+command history is retained. A removed bib cannot be reassigned to a different
+name. A new ADD for the same bib/name restores it with cleared DNS status.
+
+For a live add/remove test after deploying this version:
+
+1. Choose an unused bib absent from the real roster, for example 99999.
+2. Append `ADD 99999 | TEST RUNNER` to the RD log.
+3. Wait for the next successful publish and confirm the runner appears.
+4. Append `REMOVE 99999`, wait for publication, and confirm the runner disappears.
+5. Leave both commands in the log. Do not give the test bib any race observations.
+
+A [copy-and-paste command reference](rd-command-reference.txt) has every line
+prefixed with `#`. Paste it at the top of the RD Google Doc; none of those examples
+will execute. Enter real commands in separate paragraphs without the `#`.
 
 Times are time of day on the configured race date, in the configured timezone
 (America/New_York for Moreau). They are not elapsed race time. HHMM, HH:MM and

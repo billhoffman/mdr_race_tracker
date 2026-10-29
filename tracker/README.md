@@ -84,7 +84,7 @@ real runners; preserve the current six-runner test so its scripted reports still
 
 ### Race director commands and late runners
 
-Use the separate [director log](../deploy/DIRECTOR-LOG.md) for ADD, DNS, UNDO DNS,
+Use the separate [director log](../deploy/DIRECTOR-LOG.md) for ADD, REMOVE, DNS, UNDO DNS,
 PASS, FINISH and WITHDRAW commands. No edits to the radio team's workflow are
 needed. Add `--director-doc URL` to the server or publisher command, or configure
 `TRACKER_DIRECTOR_DOC` in the DreamHost environment. `--director-log FILE` provides
@@ -94,7 +94,10 @@ independent.
 Director additions persist in the SQLite database and survive later UltraSignup
 imports. The next poll rechecks unknown-bib radio messages. Director corrections
 supersede matching radio reports; originals remain in the audit. DNS takes
-precedence until UNDO DNS. Append commands; deleting a line does not retract it.
+precedence until UNDO DNS. Append commands; deleting a line does not retract it. REMOVE safely removes an
+RD-added runner only when absent from the uploaded roster and without any recorded
+race observations. See the guide for a live add/remove test and a commented command
+reference that can be pasted into the RD Doc.
 
 If the RD document is unavailable, a hosting-shell alternative is
 `python3 -m tracker.add_runner`: it prompts for bib/name and adds to the existing

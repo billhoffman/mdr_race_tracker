@@ -13,8 +13,14 @@ def initialize(store):
         CREATE TABLE IF NOT EXISTS director_commands(sequence INTEGER PRIMARY KEY AUTOINCREMENT,
             id TEXT UNIQUE,payload TEXT,raw TEXT,received TEXT);
         CREATE TABLE IF NOT EXISTS director_runners(bib TEXT PRIMARY KEY,name TEXT);
+        CREATE TABLE IF NOT EXISTS director_removed(bib TEXT PRIMARY KEY);
     ''')
+    removed={row['bib'] for row in store.db.execute('SELECT bib FROM director_removed')}
     for row in store.db.execute('SELECT bib,name FROM director_runners'):
+        if row['bib'] in removed:
+            if row['bib'] in store.base_bibs:
+                raise ValueError('RD-removed bib '+row['bib']+' appears in the uploaded roster; review before importing it.')
+            continue
         old=store.config['runners'].get(row['bib'])
         if old and old['name']!=row['name']:
             raise ValueError('Roster conflicts with director-added bib '+row['bib']+'; review the bib assignment.')
@@ -22,8 +28,8 @@ def initialize(store):
 
 
 def parse(raw, command_id, config, validate):
-    match=re.fullmatch(r'(UNDO DNS|UNDO PASS|UNDO FINISH|UNDO WITHDRAW|ADD|DNS|PASS|FINISH|WITHDRAW)\s+([A-Za-z0-9_-]+)\s*(.*)',raw,re.I)
-    if not match:raise ValueError('Use ADD bib | Name, DNS bib, UNDO DNS bib, PASS bib | checkpoint | HH:MM, FINISH bib | HH:MM, or WITHDRAW bib | HH:MM')
+    match=re.fullmatch(r'(UNDO DNS|UNDO PASS|UNDO FINISH|UNDO WITHDRAW|ADD|REMOVE|DNS|PASS|FINISH|WITHDRAW)\s+([A-Za-z0-9_-]+)\s*(.*)',raw,re.I)
+    if not match:raise ValueError('Use ADD bib | Name, REMOVE bib, DNS bib, UNDO DNS bib, PASS bib | checkpoint | HH:MM, FINISH bib | HH:MM, or WITHDRAW bib | HH:MM')
     action,bib,tail=match.groups();action=action.upper()
     values=[part.strip() for part in tail.split('|')[1:]] if tail.startswith('|') else []
     if tail and not tail.startswith('|'):raise ValueError('Separate the command fields with |')
@@ -35,7 +41,7 @@ def parse(raw, command_id, config, validate):
         if old and old['name']!=name:raise ValueError('Bib '+bib+' already belongs to '+old['name']+'; reassignment needs review')
         return {**command,'name':name}
     if bib not in config['runners']:raise ValueError('Unknown bib '+bib+'; add it to the roster or put ADD above this command')
-    if action in {'DNS','UNDO DNS','UNDO FINISH','UNDO WITHDRAW'}:
+    if action in {'REMOVE','DNS','UNDO DNS','UNDO FINISH','UNDO WITHDRAW'}:
         if values:raise ValueError(action+' takes only a bib')
         return command
     if action=='UNDO PASS':
@@ -59,6 +65,23 @@ def parse(raw, command_id, config, validate):
     return {**command,'event':event}
 
 
+
+def check_roster_command(store,command):
+    bib=command['bib']
+    saved=store.db.execute('SELECT name FROM director_runners WHERE bib=?',(bib,)).fetchone()
+    if command['action']=='ADD' and saved and saved['name']!=command['name']:
+        raise ValueError('Bib '+bib+' has an earlier director assignment; use a different bib instead of reassigning it')
+    if command['action']!='REMOVE':return
+    if bib in store.base_bibs or not saved:
+        raise ValueError('REMOVE is only for RD-added runners absent from the uploaded roster; use DNS for an entrant who did not start')
+    # Inspect the entire audit, including voided/overridden observations. Keeping
+    # a runner's history intact takes precedence over removing a test entry.
+    for row in store.db.execute('SELECT payload FROM revisions'):
+        payload=json.loads(row['payload'])
+        event=payload.get('event',payload)
+        if bib in event.get('bibs',[]) and event.get('kind') in {'PASS','FINISH','WITHDRAWN'}:
+            raise ValueError('Cannot REMOVE bib '+bib+': it has recorded race observations, including any later voided or overridden reports')
+
 def ingest(store,text,validate):
     # Plain paragraphs, not the radio team's TIME/MESSAGE table.
     from .radio import input_rows
@@ -79,6 +102,7 @@ def ingest(store,text,validate):
             if old:continue
             try:
                 command=parse(raw,command_id,store.config,validate)
+                check_roster_command(store,command)
             except ValueError as exc:
                 issues.append({'line':line_number,'text':raw,'message':str(exc)})
                 continue
@@ -89,7 +113,11 @@ def ingest(store,text,validate):
                              (SOURCE,command_id,payload,raw,received))
             if command['action']=='ADD':
                 store.db.execute('INSERT OR IGNORE INTO director_runners VALUES(?,?)',(command['bib'],command['name']))
+                store.db.execute('DELETE FROM director_removed WHERE bib=?',(command['bib'],))
                 store.config['runners'][command['bib']]={'bib':command['bib'],'name':command['name']}
+            elif command['action']=='REMOVE':
+                store.db.execute('INSERT OR IGNORE INTO director_removed VALUES(?)',(command['bib'],))
+                store.config['runners'].pop(command['bib'],None)
             if 'event' in command:
                 store.db.execute('INSERT OR REPLACE INTO entries VALUES(?,?,?,?,?,1)',
                     (SOURCE,command_id,json.dumps(command['event'],sort_keys=True),raw,received))
@@ -104,7 +132,10 @@ def controls(store):
     dns={};passages={};terminals={}
     for row in store.db.execute('SELECT payload FROM director_commands ORDER BY sequence'):
         command=json.loads(row['payload']);bib=command['bib'];action=command['action']
-        if action in {'DNS','UNDO DNS'}:dns[bib]=action=='DNS'
+        if action=='REMOVE':
+            dns.pop(bib,None);terminals.pop(bib,None)
+            passages={key:value for key,value in passages.items() if key[0]!=bib}
+        elif action in {'DNS','UNDO DNS'}:dns[bib]=action=='DNS'
         elif action=='PASS':passages[bib,command['event']['station']]=command['event']
         elif action=='UNDO PASS':passages[bib,command['station']]=None
         elif action in {'FINISH','WITHDRAW'}:terminals[bib]=command['event']

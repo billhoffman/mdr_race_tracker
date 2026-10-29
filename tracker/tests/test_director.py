@@ -157,6 +157,67 @@ class DirectorTests(unittest.TestCase):
         with patch('tracker.pipeline.read_google',side_effect=lambda doc,token:'ADD 107 | Late Runner' if doc=='rd' else self.radio()):
             self.assertTrue(poll_once(self.store,'google',doc_id='radio',director_doc_id='rd'))
         self.assertEqual(self.runner('107')['last']['station'],'A')
+    def test_remove_test_runner_clears_dns_and_survives_restart(self):
+        log='ADD 99999 | TEST RUNNER\nDNS 99999'
+        self.assertFalse(self.store.ingest_director(log))
+        self.assertEqual(self.runner('99999')['status'],'dns')
+        log+='\nREMOVE 99999'
+        self.assertFalse(self.store.ingest_director(log))
+        self.assertNotIn('99999',[r['bib'] for r in self.store.snapshot()['runners']])
+        self.assertEqual(self.store.snapshot()['counts']['dns'],0)
+        revision=self.store.snapshot()['revision']
+        self.reopen();self.assertFalse(self.store.ingest_director(log))
+        self.assertEqual(self.store.snapshot()['revision'],revision)
+        self.assertNotIn('99999',[r['bib'] for r in self.store.snapshot()['runners']])
+    def test_remove_rejects_uploaded_roster_runner(self):
+        self.assertTrue(self.store.ingest_director('ADD 101 | Alex Demo\nREMOVE 101'))
+        self.assertEqual(self.runner()['name'],'Alex Demo')
+    def test_remove_rejects_radio_history_even_after_void(self):
+        self.store.ingest_director('ADD 99999 | TEST RUNNER')
+        self.store.ingest('T001 | 09:10 | A | 99999 | PASS')
+        self.store.ingest('T001 | VOID')
+        self.assertTrue(self.store.ingest_director('ADD 99999 | TEST RUNNER\nREMOVE 99999'))
+        self.assertEqual(self.runner('99999')['name'],'TEST RUNNER')
+    def test_remove_rejects_director_history_even_after_undo(self):
+        log='ADD 99999 | TEST RUNNER\nFINISH 99999 | 11:00\nUNDO FINISH 99999\nREMOVE 99999'
+        self.assertTrue(self.store.ingest_director(log))
+        self.assertEqual(self.runner('99999')['status'],'not_reported')
+    def test_removed_runner_can_be_readded_with_same_identity(self):
+        log='ADD 99999 | TEST RUNNER\nDNS 99999\nREMOVE 99999'
+        self.store.ingest_director(log)
+        self.assertFalse(self.store.ingest_director(log+'\nADD 99999 | TEST RUNNER'))
+        self.assertEqual(self.runner('99999')['status'],'not_reported')
+        self.reopen();self.assertEqual(self.runner('99999')['name'],'TEST RUNNER')
+    def test_removed_bib_cannot_be_reassigned_or_resurrected_by_import(self):
+        log='ADD 99999 | TEST RUNNER\nREMOVE 99999'
+        self.store.ingest_director(log)
+        self.assertTrue(self.store.ingest_director(log+'\nADD 99999 | DIFFERENT RUNNER'))
+        self.assertNotIn('99999',[r['bib'] for r in self.store.snapshot()['runners']])
+        self.store.close()
+        config=copy.deepcopy(self.config)
+        config['runners']['99999']={'bib':'99999','name':'TEST RUNNER'}
+        with self.assertRaisesRegex(ValueError,'RD-removed bib'):
+            Store(self.path,config)
+        self.store=Store(self.path,self.config)
+    def test_commented_reference_is_safe_to_paste_with_live_commands(self):
+        text=(ROOT/'deploy/rd-command-reference.txt').read_text()
+        self.assertTrue(all(not line or line.startswith('#') for line in text.splitlines()))
+        self.assertFalse(self.store.ingest_director(text))
+        self.assertEqual(self.store.snapshot()['revision'],0)
+        self.assertFalse(self.store.ingest_director(text+'\nADD 99999 | TEST RUNNER\nREMOVE 99999'))
+        self.assertEqual(len(self.store.snapshot()['runners']),6)
+    def test_add_remove_publication_between_cron_processes(self):
+        radio=self.root/'radio.txt';radio.write_text('')
+        rd=self.root/'rd.txt';rd.write_text('ADD 99999 | TEST RUNNER')
+        database=self.root/'publish-remove.sqlite3';site=self.root/'remove-site'
+        success,before=publish(self.config,database,site,log=radio,director_log=rd)
+        self.assertTrue(success);self.assertEqual(len(before['runners']),7)
+        rd.write_text(rd.read_text()+'\nREMOVE 99999')
+        success,after=publish(self.config,database,site,log=radio,director_log=rd)
+        self.assertTrue(success);self.assertEqual(len(after['runners']),6)
+        self.assertNotIn('99999',[r['bib'] for r in json.loads((site/'state.json').read_text())['runners']])
+        success,again=publish(self.config,database,site,log=radio,director_log=rd)
+        self.assertTrue(success);self.assertEqual(again['revision'],after['revision'])
     def test_empty_export_is_valid_but_login_page_is_not(self):
         self.assertEqual(html_input('<html><head><style>p{}</style></head><body><p></p></body></html>').strip(),'')
         with self.assertRaises(ValueError):html_input('<html><body><a href="https://accounts.google.com/ServiceLogin">Sign in</a></body></html>')

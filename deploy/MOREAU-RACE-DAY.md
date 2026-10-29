@@ -45,51 +45,43 @@ On DreamHost:
 ```sh
 cd ~/mdr_race_tracker
 git pull --ff-only
-mkdir -p ~/mdr-tracker-data
-python3 --version
 ```
 
+The private data directory and Python installation are already set up on DreamHost.
 Use the Python executable already working in `~/.mdr-tracker.env`. The commands
 below use `python3`; substitute the configured executable if yours differs.
 
-## 2. Download and upload the UltraSignup participant list
+## 2. Import the UltraSignup roster on your Mac
 
-Assign the runner bibs in UltraSignup, then download its **participant/registration
-export**, not a results export. CSV or XLSX is supported. It must include names and
-assigned bib numbers. Keep this file private: exports can contain contact details.
+Assign the runner bibs in UltraSignup, then download its **2026 participant/registration
+export**, not historical results. CSV or XLSX is supported. The full export stays
+on your Mac; only the generated names-and-bibs JSON goes to DreamHost.
 
-For example, save it on your Mac as `~/Downloads/MoreauExport.xlsx`. In a separate
-Mac Terminal window (not the DreamHost shell), upload it:
-
-```sh
-scp "$HOME/Downloads/MoreauExport.xlsx" dh_6n4gzz@pdx1-shared-a1-19.dreamhost.com:mdr-tracker-data/MoreauExport.xlsx
-```
-
-Use the actual filename/extension if different. The destination directory was
-created in step 1 and is outside the public website directory.
-
-## 3. Import the names and bibs
-
-Back in the DreamHost SSH session:
+In your Mac Terminal, using the actual export filename:
 
 ```sh
-cd ~/mdr_race_tracker
-python3 -m tracker.import_roster "$HOME/mdr-tracker-data/MoreauExport.xlsx" --output races/moreau-2026/roster.json
+cd /Users/hoffman/Running/buck50radio/race-tracker
+python3 -m tracker.import_roster "$HOME/Downloads/MoreauExport.xlsx" --output races/moreau-2026/roster.json
 ```
 
-The output reports the imported count and any skipped rows. Check the count against
-the intended race field. Rows marked removed, rows without bibs, and exact duplicates
-are skipped. Conflicting assignments of the same bib to different names stop the
-import. The generated roster contains **only names and bibs**; it is ignored by Git.
+Check the reported count and skipped rows against the intended race field. Removed
+registrations, missing bibs and exact duplicates are skipped. A conflicting name
+on an existing bib stops the import. Later imports merge additions and preserve
+existing runners. The JSON and its backups are ignored by Git.
 
-To inspect the imported list:
+## 3. Copy roster.json to DreamHost
+
+Still in the Mac Terminal and repository directory:
 
 ```sh
-python3 -c 'import json; r=json.load(open("races/moreau-2026/roster.json")); print("Runners:",len(r)); [print(p["bib"],p["name"]) for p in r]'
+scp races/moreau-2026/roster.json dh_6n4gzz@pdx1-shared-a1-19.dreamhost.com:mdr_race_tracker/races/moreau-2026/roster.json.new
+ssh dh_6n4gzz@pdx1-shared-a1-19.dreamhost.com 'mv mdr_race_tracker/races/moreau-2026/roster.json.new mdr_race_tracker/races/moreau-2026/roster.json'
 ```
 
-Do not manually add all runners to the database. The tracker reads this roster
-whenever the publisher runs. Runners initially show **Not reported**.
+Uploading to `.new` and then renaming means cron sees a complete roster file.
+The next publish reads the uploaded roster when the real-race environment is active.
+Runners initially show **Not reported**; registration does not confirm a start.
+There is no need to upload the original export or run the importer on DreamHost.
 
 ## 4. Prepare the real race configuration
 
@@ -236,10 +228,14 @@ it prompts for bib/name and updates the existing roster file. File changes load 
 the next publish. Do not reuse an assigned bib for another runner.
 
 
-Export UltraSignup again, upload it privately, and rerun the same import command.
+Export UltraSignup again on the Mac, rerun the same local import, then repeat the
+JSON upload/rename commands in step 3. Do not upload the full export.
 For new runners, check the new count; the next cron run loads them automatically.
 Imports preserve existing runners absent from a later export; removals require review.
-Roster-file updates are atomic and retain a `.bak` of the prior version.
+Local imports are atomic and retain a `.bak` of the prior local roster.
+If you used the hosting-shell add-runner fallback, bring that updated host roster
+back to the Mac before a later upload, so file-only additions are preserved.
+RD-log additions live in the database and are unaffected by roster-file uploads.
 
 Once reports have been recorded, do not remove their runners from the roster or
 reassign their bibs: the history is keyed by bib. If the import detects a changed

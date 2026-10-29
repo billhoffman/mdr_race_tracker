@@ -84,6 +84,7 @@ def parse_line(line, config):
 class Store:
     def __init__(self, path, config):
         Path(path).parent.mkdir(parents=True,exist_ok=True)
+        self.base_bibs=set(config['runners'])
         self.config = {**config,'runners':{bib:dict(runner) for bib,runner in config['runners'].items()}}
         self.lock = threading.RLock()
         self.db = sqlite3.connect(path,check_same_thread=False)
