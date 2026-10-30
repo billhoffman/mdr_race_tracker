@@ -41,6 +41,8 @@ class PublisherTests(unittest.TestCase):
         self.assertNotIn('href="/style.css"',html)
         self.assertNotIn('src="/course-geometry.js"',html)
         self.assertEqual(len(list(self.web.glob('course-geometry-*.js'))),1)
+        self.assertEqual(len(list(self.web.glob('progress-*.js'))),1)
+        self.assertIn('Estimated progress',html)
         self.assertTrue((self.web/'.htaccess').exists())
         self.assertFalse(any(p.suffix in {'.sqlite3','.db','.txt'} for p in self.web.iterdir()))
     def test_separate_runs_are_idempotent_and_corrections_persist(self):

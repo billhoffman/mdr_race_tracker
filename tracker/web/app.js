@@ -24,7 +24,7 @@ function sweeperStatus(sweeper,now=Date.now()){
 }
 function svg(tag,attrs,parent){const e=document.createElementNS(NS,tag);for(const [k,v] of Object.entries(attrs))e.setAttribute(k,v);parent.append(e);return e}
 function label(parent,x,y,text,color,size=15){const e=svg('text',{x,y,fill:color,'font-size':size,'font-weight':600,'paint-order':'stroke',stroke:'#0e2026','stroke-width':4},parent);e.textContent=text;return e}
-let mapMode='satellite',mapCache=null,elevationCache=null;
+let mapMode='satellite',mapCache=null,elevationCache=null,progressMode='estimated',progressModel=null;
 function runnerGroups(){const groups={};for(const r of state.runners){const position=r.position??r.last;if(!position?.station)continue;(groups[position.station]??=[]).push(r)}return groups}
 function countMarker(parent,x,y,runners,estimated=false){
  const marked=runners.some(r=>r.bib===selected);
@@ -49,6 +49,26 @@ function drawSweeper(){
  if(x>=0&&x<=1000&&y>=0&&y<=580)broomMarker(mapCache.sweepers,x,y,status.stale);
  else note.textContent+=' · Latest position is outside this map view.';
 }
+function raceNow(){return Date.parse(state.race.clock)/1000+(state.race.clock_mode==='live'?clockAge+(performance.now()-clockReceived)/1000:0)}
+function updateEstimateMarkers(parent,cache,estimates,project,small=false){
+ const ids=new Set(estimates.map(e=>e.bib));for(const [bib,item] of cache)if(!ids.has(bib)){item.g.remove();cache.delete(bib)}
+ const ordered=[...estimates].sort((a,b)=>(a.bib===selected)-(b.bib===selected));
+ for(const estimate of ordered){let item=cache.get(estimate.bib);if(!item){const g=svg('g',{'aria-label':'Estimated runner position'},parent),circle=svg('circle',{'stroke-width':1.8},g),title=svg('title',{},g);g.style.cursor='pointer';g.addEventListener('click',()=>{selected=selected===estimate.bib?null:estimate.bib;drawMap();drawTable()});item={g,circle,title};cache.set(estimate.bib,item)}
+  const [x,y]=project(estimate),marked=selected===estimate.bib;item.g.setAttribute('transform',`translate(${x},${y})`);item.circle.setAttribute('r',marked?9:small?4:6);item.circle.setAttribute('fill',estimate.color);item.circle.setAttribute('fill-opacity',estimate.opacity);item.circle.setAttribute('stroke',marked?'#ffffff':estimate.color);item.circle.setAttribute('stroke-dasharray',estimate.inferred?'2 2':'none');
+  item.title.textContent=`${estimate.bib} ${estimate.name} · ESTIMATED mile ${(estimate.distance_m/1609.344).toFixed(2)} · Last confirmed ${estimate.confirmed_station} ${time(estimate.confirmed_time)} · ${estimate.speed_basis} pace`+(estimate.inferred?` · Inferred beyond ${estimate.boundary.station} from all-runners-passed report`:'')+(estimate.capped?' · Waiting for next confirmed checkpoint':'');parent.append(item.g);
+ }
+}
+function drawEstimatedProgress(){
+ if(!state||!course||!mapCache||!progressModel)return;
+ const enabled=progressMode==='estimated',estimates=enabled?window.RaceProgress.estimate(progressModel,raceNow()):[];
+ mapCache.estimates.setAttribute('display',enabled?'inline':'none');
+ updateEstimateMarkers(mapCache.estimates,mapCache.estimateMarkers,estimates,e=>mapCache.project(e.coordinates));
+ if(elevationCache?.profile){elevationCache.estimates.setAttribute('display',enabled?'inline':'none');updateEstimateMarkers(elevationCache.estimates,elevationCache.estimateMarkers,estimates,e=>[elevationCache.x(e.distance_m),elevationCache.y(elevationCache.profile.at(e.distance_m).feet)],true)}
+ $('estimate-note').textContent=enabled?'ESTIMATED PROGRESS · Small dots use computed pace, stop before an unconfirmed checkpoint and fade from green to amber as uncertainty grows. Dashed dots use an all-runners-passed inference. Solid numbered circles are confirmed checkpoints.':'CONFIRMED CHECKPOINTS · Solid circles show last individually reported locations. No runner movement is estimated in this view.';
+ const detail=$('estimate-detail'),estimate=estimates.find(e=>e.bib===selected);detail.hidden=!estimate;
+ if(estimate)detail.textContent=`${estimate.bib} ${estimate.name}: estimated mile ${(estimate.distance_m/1609.344).toFixed(2)} · Last confirmed ${estimate.confirmed_station} at ${time(estimate.confirmed_time)}`+(estimate.inferred?` · Inferred past ${estimate.boundary.station} after all runners were reported through`:'')+(estimate.capped?' · Awaiting next checkpoint report':'');
+}
+function setProgressMode(mode){progressMode=mode;$('estimated-view').setAttribute('aria-pressed',String(mode==='estimated'));$('confirmed-view').setAttribute('aria-pressed',String(mode==='confirmed'));drawEstimatedProgress()}
 function drawMap(){
  if(!course||!state)return;
  const root=$('course-map'),route=course.route.coordinates;
@@ -76,13 +96,14 @@ function drawMap(){
   locations.START=project(route[0]);locations.FINISH=project(route.at(-1));
   label(root,locations.START[0]+10,locations.START[1]-16,'START','#c6f7cf',13);
   label(root,locations.FINISH[0]+10,locations.FINISH[1]+22,'FINISH','#c6f7cf',13);
-  mapCache={course,mode:mapMode,locations,project,runners:svg('g',{},root),sweepers:svg('g',{},root)};
+  mapCache={course,mode:mapMode,locations,project,runners:svg('g',{},root),estimates:svg('g',{},root),estimateMarkers:new Map(),sweepers:svg('g',{},root)};
  }
  mapCache.runners.replaceChildren();
  for(const [station,runners] of Object.entries(runnerGroups())){const p=mapCache.locations[station];if(p)countMarker(mapCache.runners,p[0],p[1],runners)}
  $('course-note').textContent=`${(course.route.length_m/1609.344).toFixed(2)} mapped miles · Aid stations: ${course.checkpoints.filter(c=>c.aid_station).map(c=>c.id).join(', ')||'none marked'} · Numbered circles count runners last reported at that location`;
  drawElevation();
  drawSweeper();
+ drawEstimatedProgress();
 }
 function drawElevation(){
  const root=$('elevation-profile');
@@ -105,8 +126,8 @@ function drawElevation(){
   for(let mile=0;mile<=length/1609.344;mile+=2){const xx=x(mile*1609.344);svg('line',{x1:xx,y1:195,x2:xx,y2:201,stroke:'#a6bebc'},root);label(root,xx-4,218,String(mile),'#a6bebc',11)}
   label(root,910,243,'Miles','#a6bebc',12);label(root,8,28,'Feet','#a6bebc',12);
   for(const c of course.checkpoints){const xx=x(c.distance_m);svg('line',{x1:xx,y1:35,x2:xx,y2:195,stroke:c.aid_station?'#b67b43':'#31505a','stroke-width':0.8,'stroke-dasharray':'2 5'},root);label(root,xx-5,28,c.id,c.aid_station?'#f5b369':'#c2d8d2',13)}
-  elevationCache={course,profile,x,y,runners:svg('g',{},root),sweepers:svg('g',{},root)};
-  $('elevation-note').textContent=(course.route.elevation_backfill?'Elevation from the course trace, with missing values filled from USGS 3DEP terrain data.':'Elevation from the supplied course trace.')+' Runner markers show confirmed course distance.'+(profile.gaps.length?' Orange dashed sections and orange-outlined markers use interpolated elevation where the track has missing values.':'');
+  elevationCache={course,profile,x,y,runners:svg('g',{},root),estimates:svg('g',{},root),estimateMarkers:new Map(),sweepers:svg('g',{},root)};
+  $('elevation-note').textContent=(course.route.elevation_backfill?'Elevation from the course trace, with missing values filled from USGS 3DEP terrain data.':'Elevation from the supplied course trace.')+' Solid circles show confirmed course distance; small dots show estimated progress when enabled.'+(profile.gaps.length?' Orange dashed sections and orange-outlined markers use interpolated elevation where the track has missing values.':'');
  }
  if(!elevationCache.profile)return;
  const cache=elevationCache;cache.runners.replaceChildren();cache.sweepers.replaceChildren();
@@ -117,7 +138,7 @@ function drawElevation(){
 function drawTable(){if(!state)return;const filter=$('search').value.toLowerCase();const body=$('runners');body.replaceChildren();
 for(const r of state.runners.filter(r=>(r.bib+' '+r.name).toLowerCase().includes(filter))){const row=document.createElement('tr');row.classList.toggle('selected-row',selected===r.bib);const first=document.createElement('td'),button=document.createElement('button'),bib=document.createElement('b');bib.textContent=r.bib;button.append(bib,document.createTextNode(r.name));button.onclick=()=>{selected=selected===r.bib?null:r.bib;drawMap();drawTable()};first.append(button);row.append(first);const status=document.createElement('td'),pill=document.createElement('span');pill.className='pill '+r.status;pill.textContent={on_course:'On course',finished:'Finished #'+r.place,withdrawn:'Withdrawn',dns:'DNS',not_reported:'Not reported'}[r.status];status.append(pill);row.append(status);
 const ago=r.last?elapsed((new Date(state.race.clock)-new Date(r.last.time))/1000):'—';for(const value of [r.last?.station||(r.position?.station?`${r.position.station} (last known)`:'—'),time(r.last?.time),ago,r.elapsed_seconds===null?'—':elapsed(r.elapsed_seconds)]){const cell=document.createElement('td');cell.textContent=value;row.append(cell)}body.append(row)}}
-function render(){const s=state;document.querySelector('footer').textContent='Checkpoint-based tracking · '+s.race.name+(s.race.test_mode?' · Fictional test data':'');$('race-name').textContent=s.race.name;$('mode').textContent=s.race.test_mode?'FICTIONAL TEST':'LIVE RACE';$('clock').textContent=elapsed(s.race.elapsed_seconds);$('clock-note').textContent=s.race.clock_mode==='latest_report'?'Test clock follows the latest entered report · No estimated runner movement':`Race start: ${time(s.race.start_time)} · Clock runs in real time · Confirmed checkpoint tracking`;$('roster-count').textContent=s.runners.length;$('on-course').textContent=s.counts.on_course;$('finished').textContent=s.counts.finished;$('withdrawn').textContent=s.counts.withdrawn;$('dns').textContent=s.counts.dns||0;
+function render(){const s=state;document.querySelector('footer').textContent='Checkpoint-based tracking · '+s.race.name+(s.race.test_mode?' · Fictional test data':'');$('race-name').textContent=s.race.name;$('mode').textContent=s.race.test_mode?'FICTIONAL TEST':'LIVE RACE';$('clock').textContent=elapsed(s.race.elapsed_seconds);$('clock-note').textContent=s.race.clock_mode==='latest_report'?'Test clock follows the latest entered report':`Race start: ${time(s.race.start_time)} · Clock runs in real time · Confirmed checkpoint tracking`;$('roster-count').textContent=s.runners.length;$('on-course').textContent=s.counts.on_course;$('finished').textContent=s.counts.finished;$('withdrawn').textContent=s.counts.withdrawn;$('dns').textContent=s.counts.dns||0;
 document.querySelector('aside').hidden=Boolean(s.public_view);document.querySelector('.review').hidden=Boolean(s.public_view);document.querySelector('details').hidden=Boolean(s.public_view);document.querySelector('.layout').style.gridTemplateColumns=s.public_view?'1fr':'';
 const status=sourceStatus(s.source);$('connection').classList.toggle('error',status.error);$('connection').textContent=status.text+` · ${s.revision} saved revisions`;
 const activity=$('activity');activity.replaceChildren();for(const entry of s.history){const li=document.createElement('li');li.textContent=entry.raw;const note=document.createElement('small');note.textContent='Received '+time(entry.received)+' · Revision '+entry.sequence;li.append(note);activity.append(li)}if(!s.history.length){const li=document.createElement('li');li.textContent='Ready for the first report.';activity.append(li)}
@@ -125,8 +146,9 @@ const issues=$('issues');issues.replaceChildren();const all=[...s.issues.map(i=>
 async function refresh(){try{
 const response=await fetch(settings.stateUrl,{cache:'no-store'});if(!response.ok)throw Error('Could not load race state');const next=await response.json();
 const courseUrl=next.course_url||settings.courseUrl;if(!course||loadedCourseUrl!==courseUrl){const result=await fetch(courseUrl,{cache:'no-store'});if(!result.ok)throw Error('Could not load course');course=await result.json();loadedCourseUrl=courseUrl}
-state=next;clockReceived=performance.now();clockAge=state.published_at?Math.max(0,(Date.now()-new Date(state.published_at))/1000):0;render();tickClock()
+state=next;progressModel=window.RaceProgress.prepare(state,course);clockReceived=performance.now();clockAge=state.published_at?Math.max(0,(Date.now()-new Date(state.published_at))/1000):0;render();tickClock()
 }catch(error){$('connection').classList.add('error');$('connection').textContent=(settings.static?'Published updates are unavailable.':'Tracker service disconnected.')+' Last displayed data may be stale. '+error.message}finally{setTimeout(refresh,3000)}}
 $('satellite-view').addEventListener('click',()=>setMapMode('satellite'));$('course-view').addEventListener('click',()=>setMapMode('course'));
 function setMapMode(mode){mapMode=mode;$('satellite-view').setAttribute('aria-pressed',String(mode==='satellite'));$('course-view').setAttribute('aria-pressed',String(mode==='course'));drawMap()}
-$('search').addEventListener('input',drawTable);setInterval(tickClock,1000);refresh();
+$('estimated-view').addEventListener('click',()=>setProgressMode('estimated'));$('confirmed-view').addEventListener('click',()=>setProgressMode('confirmed'));
+$('search').addEventListener('input',drawTable);setInterval(()=>{tickClock();drawEstimatedProgress()},1000);refresh();

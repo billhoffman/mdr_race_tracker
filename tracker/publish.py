@@ -75,6 +75,8 @@ def write_site(web_root, course, snapshot):
     course_name = 'course-'+hashlib.sha256(course_data).hexdigest()[:16]+'.json'
     app_data, css_data = (WEB/'app.js').read_bytes(), (WEB/'style.css').read_bytes()
     geometry_data = (WEB/'course-geometry.js').read_bytes()
+    progress_data=(WEB/'progress.js').read_bytes()
+    progress_name='progress-'+hashlib.sha256(progress_data).hexdigest()[:16]+'.js'
     geometry_name = 'course-geometry-'+hashlib.sha256(geometry_data).hexdigest()[:16]+'.js'
     app_name = 'app-'+hashlib.sha256(app_data).hexdigest()[:16]+'.js'
     css_name = 'style-'+hashlib.sha256(css_data).hexdigest()[:16]+'.css'
@@ -82,6 +84,7 @@ def write_site(web_root, course, snapshot):
     atomic_write(web_root/app_name,app_data)
     atomic_write(web_root/css_name,css_data)
     atomic_write(web_root/geometry_name,geometry_data)
+    atomic_write(web_root/progress_name,progress_data)
     state = public_snapshot(snapshot)
     state.update(published_at=datetime.now(timezone.utc).isoformat(),course_url='./'+course_name)
     # state.json is replaced atomically. Its course URL is immutable, so readers
@@ -89,6 +92,7 @@ def write_site(web_root, course, snapshot):
     atomic_write(web_root/'state.json',json.dumps(state,separators=(',',':')))
     html = (WEB/'index.html').read_text()
     html = html.replace('href="/style.css"',f'href="./{css_name}"')
+    html = html.replace('src="/progress.js"',f'src="./{progress_name}"')
     html = html.replace('src="/course-geometry.js"',f'src="./{geometry_name}"')
     html = html.replace('<body>','<body data-public="true">')
     settings = '<script>window.TRACKER_SETTINGS={stateUrl:"./state.json",static:true};</script>'

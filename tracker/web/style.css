@@ -7,3 +7,5 @@
 .pill.dns{background:#42404c;color:#e1d8ef}
 
 .sweeper-status{color:#f5b369;background:#f5b36910;border:1px solid #f5b36955;border-radius:6px;padding:10px 12px;margin:12px 0;font-size:13px}.sweeper-status.stale{color:#c6c8c2;border-color:#83918a}
+
+.progress-controls{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}.progress-controls button{font:inherit;font-size:12px;color:var(--muted);background:#0b171c;border:1px solid #45646a;padding:8px 12px;border-radius:5px;cursor:pointer}.progress-controls button[aria-pressed="true"]{color:#0b171c;background:var(--mint);border-color:var(--mint)}.estimate-detail{font-size:13px;color:#d8eddf;border-left:3px solid var(--mint);padding:8px 12px;background:#a4e4bc0d}

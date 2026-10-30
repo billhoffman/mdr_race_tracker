@@ -40,7 +40,7 @@ class Buck50RegressionTests(unittest.TestCase):
         self.store.close();self.temp.cleanup()
     def events(self):
         return [json.loads(row['payload']) for row in self.store.audit()
-                if not json.loads(row['payload']).get('void')]
+                if not json.loads(row['payload']).get('void') and json.loads(row['payload']).get('kind') in {'PASS','FINISH','WITHDRAWN'}]
     def ingest(self):self.store.ingest(self.text)
     def find(self,bib,station,report_time,kind='PASS'):
         return [event for event in self.events() if bib in event['bibs']
@@ -103,7 +103,16 @@ class Buck50RegressionTests(unittest.TestCase):
         self.store.close();self.store=Store(self.database,buck_config())
         self.ingest();self.ingest()
         self.assertEqual(self.events(),events)
-        self.assertEqual(len(self.store.audit()),len(events))
+        revision=len(self.store.audit());self.ingest()
+        self.assertEqual(len(self.store.audit()),revision)
+    def test_actual_all_passed_report_provides_a_separate_display_boundary(self):
+        self.ingest()
+        boundaries=self.store.snapshot()['progress_boundaries']
+        cleared=[b for b in boundaries if b['kind']=='CLEARANCE' and b['station']=='G']
+        self.assertEqual(len(cleared),1)
+        self.assertEqual(cleared[0]['time'][11:16],'11:01')
+        self.assertFalse(any(b['kind']=='CLEARANCE' and b['station'] in {'H','I','J'} for b in boundaries))
+        self.assertEqual(len(self.events()),EXPECTED['accepted_observations'])
     def test_confirmed_summary_preserves_radio_gap_and_drops(self):
         self.ingest()
         snapshot=self.store.snapshot()

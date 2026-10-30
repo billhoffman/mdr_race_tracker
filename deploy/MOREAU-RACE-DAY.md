@@ -216,7 +216,8 @@ tail -n 10 ~/mdr-tracker-data/publish.log
 ```
 
 Cron now uses the real config/roster/Doc. The browser automatically loads updates
-after publication; runner positions remain at last confirmed checkpoints.
+after publication. Solid circles remain confirmed checkpoints; the clearly labelled
+[Estimated progress view](ESTIMATED-PROGRESS.md) adds separate moving pace-based dots.
 
 ## Late registrations and bib changes
 

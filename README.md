@@ -54,6 +54,12 @@ all received race-day sweeper GPS fixes and source-read history in the private
 SQLite database. `python3 -m tracker.export_race` creates a consistent ZIP backup
 with readable JSON data for a separate post-race movie workflow.
 
+The [Estimated progress view](deploy/ESTIMATED-PROGRESS.md) adds small pace-based
+moving dots alongside solid confirmed checkpoint counts. Dots fade as uncertainty
+grows and stop before unconfirmed checkpoints. Viewers can switch to confirmed-only
+tracking. Explicit all-passed radio reports can supply labelled inference boundaries;
+recorded passages, results and runner counts remain separate from estimates.
+
 ## Server deployment
 
 ### DreamHost shared hosting
@@ -194,7 +200,7 @@ python3 -m unittest discover -s tracker/tests -v
 ```
 
 If Node is available, `node --check tracker/web/app.js` checks browser JS syntax.
-`node --test tracker/tests/test_clock.cjs tracker/tests/test_geometry.cjs tracker/tests/test_sweepers.cjs` checks
+`node --test tracker/tests/*.cjs` checks
 clock behavior, map alignment and missing-elevation handling.
 Node is not required to run the tracker. Full local testing instructions are in
 [tracker/README.md](tracker/README.md).

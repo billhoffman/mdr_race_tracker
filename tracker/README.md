@@ -203,7 +203,9 @@ formatting a report as a heading or a list is not required.
   checkpoint report after a finish or withdrawal is held for review.
 
 The test clock follows the latest valid report rather than the current wall clock.
-Runner positions are last confirmed checkpoints, never extrapolated GPS positions.
+Confirmed positions remain at last reported checkpoints. The optional estimated
+progress layer is computed separately and clearly labelled; it never creates
+confirmed passages or GPS data.
 Finish places are provisional and based on accepted finish reports. A real race
 configuration would set `clock_mode` to `live` and use the actual start date/time.
 
@@ -237,6 +239,14 @@ paste its contents into chat. Read-only Docs authorization can read documents th
 signed-in account can access; the tracker requests only the configured document.
 Testing-mode OAuth grants may expire and require sign-in again. The helper and
 private API path need a live Google account to verify end to end.
+
+## Estimated runner progress
+
+See the [display model and rehearsal](../deploy/ESTIMATED-PROGRESS.md). The browser
+shows moving small dots using computed pace, confidence fading and conservative
+checkpoint caps; solid numbered circles remain confirmed observations. All-passed
+and first-runner evidence is stored separately and never changes individual status
+or finish places. No radio-operator workflow changes are required.
 
 ## Sweeper GPS
 
@@ -282,5 +292,5 @@ the distinction between message parsing and repeated course visits.
 ```sh
 python3 -m unittest discover -s tracker/tests -v
 node --check tracker/web/app.js
-node --test tracker/tests/test_clock.cjs
+node --test tracker/tests/*.cjs
 ```

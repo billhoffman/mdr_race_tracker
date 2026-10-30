@@ -83,7 +83,7 @@ def main():
             if path=='/healthz':
                 # Process readiness only; /api/state reports input freshness separately.
                 return self.send_json({'status':'ok','race_id':config['race_id']})
-            filename = {'/':'index.html','/app.js':'app.js','/course-geometry.js':'course-geometry.js','/style.css':'style.css'}.get(path)
+            filename = {'/':'index.html','/app.js':'app.js','/course-geometry.js':'course-geometry.js','/progress.js':'progress.js','/style.css':'style.css'}.get(path)
             if not filename:
                 return self.send_error(404)
             data = (WEB/filename).read_bytes()

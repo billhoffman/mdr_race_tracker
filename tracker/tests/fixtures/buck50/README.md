@@ -27,7 +27,7 @@ python3 -m unittest discover -s tracker/tests -v
 The regression checks:
 
 - The production HTML reader, polling pipeline and SQLite ingestion accept the
-  original table: 222 provisional observations, all 42 radio-recorded finish bibs,
+  original table: 222 individual provisional observations, all 42 radio-recorded finish bibs,
   and withdrawals 16, 28, 29 and 55.
 - Embedded passage times, grouped bibs, paragraphs within a cell, mixed drops and
   passages, and the finish lines with unmarked bibs retain their intended meaning.
@@ -49,3 +49,8 @@ checkpoint. A future repeated-visit model should add separate course tests here.
 The drop for bib 29 is recognized in the explicit 15:52 report. The earlier 15:50
 entry is phrased as a question and is held for review; the test does not silently
 substitute the retrospective director-confirmed drop time.
+
+The original 11:01 checkpoint G "All runners passed and sweep has passed" row is
+also tested as a separate display-only clearance boundary. Last-runner reports
+at H, I and J do not clear the whole field. Aggregate records add audit revisions
+but do not add bib-specific observations or change the expected finish/drop counts.

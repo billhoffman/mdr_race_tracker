@@ -1,0 +1,9 @@
+Net Controls: Fictional estimated-progress rehearsal
+TIME
+MESSAGE
+0910	Checkpoint A Bib #101 and #102 passed at 0910
+0915	Checkpoint A Bib #103, #104, #105 and #106 passed at 0915
+0935	Checkpoint B First runner Bib #101 passed at 0935
+0940	Checkpoint B Bib #102 passed at 0940
+1000	Checkpoint C Bib #101 passed at 1000
+1005	Checkpoint B All runners have passed at 0955. Sweep passed at 1003

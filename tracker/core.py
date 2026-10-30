@@ -9,6 +9,8 @@ import threading
 from zoneinfo import ZoneInfo
 from .radio import input_rows, identify_rows, parse_report
 from . import archive, director, sweepers
+from .boundaries import parse_boundary
+from .radio import BIB
 
 
 def load_config(path, roster_path=None):
@@ -206,7 +208,9 @@ class Store:
                 old=self.db.execute('SELECT id,payload FROM entries WHERE source=? AND id GLOB ?',
                                     (source,row['id']+'_*')).fetchall()
                 try:
-                    events=parse_report(row,self.config,parse_line)
+                    boundary=parse_boundary(row,self.config)
+                    events=parse_report(row,self.config,parse_line) if not boundary or BIB.search(row['message']) else []
+                    if boundary:events.append(boundary)
                     if not events and any(not json.loads(r['payload']).get('void') for r in old):
                         raise ValueError('An accepted runner report was replaced with non-runner text; last confirmed data retained')
                 except ValueError as exc:
@@ -254,8 +258,12 @@ class Store:
             observations.append(event)
         director_ids={e['id'] for e in list(director_settings[1].values())+list(director_settings[2].values()) if e}
         observations=[e for e in observations if e['source']!=director.SOURCE or e['id'] in director_ids]
+        held_rows={issue.get('id') for issue in issues if issue.get('source')=='primary-log'}
+        boundaries=[e for e in observations if e['kind'] in {'CLEARANCE','LEADER'}
+                    and datetime.fromisoformat(e['time'])>=start and e['id'][:-2] not in held_rows]
+        observations=[e for e in observations if e['kind'] not in {'CLEARANCE','LEADER'}]
         observations.sort(key=lambda e:(e['time'],e['id']))
-        clock = max([start]+[datetime.fromisoformat(e['time']) for e in observations]) if self.config.get('clock_mode')=='latest_report' else datetime.now(start.tzinfo)
+        clock = max([start]+[datetime.fromisoformat(e['time']) for e in observations+boundaries]) if self.config.get('clock_mode')=='latest_report' else datetime.now(start.tzinfo)
         checkpoint_distance = {key:value['distance_m'] for key,value in self.config['checkpoints'].items()}
         checkpoint_distance.update(START=0,FINISH=self.config['course']['route']['length_m'])
         runners, anomalies = [], []
@@ -293,6 +301,7 @@ class Store:
                 'start_time':start.isoformat(),'configured_start_time':self.base_start.isoformat(),
                 'start_time_source':start_time_source,'clock_mode':self.config.get('clock_mode'),'clock':clock.isoformat(),
                 'elapsed_seconds':max(0,(clock-start).total_seconds()),'timezone':self.config['timezone']},
+            'progress_boundaries':[{'id':e['id'],'kind':e['kind'],'station':e['station'],'time':e['time']} for e in boundaries],
             'sweeper':sweeper,'revision':revision,'runners':runners,'issues':issues,'anomalies':anomalies,'history':history,'source':health,
             'counts':{kind:sum(r['status']==kind for r in runners) for kind in ['finished','withdrawn','on_course','not_reported','dns']}}
 

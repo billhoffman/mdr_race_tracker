@@ -70,7 +70,8 @@ class RadioTests(unittest.TestCase):
         self.assertFalse(self.ingest(('0538','KG5JEN on station at Checkpoint A'),
             ('0930','Net control announcement on repeater'),('0950','Checkpoint B Sweep #2 passed at 0940'),
             ('0955','Checkpoint B All runners passed and sweep has passed. Cleared to secure')))
-        self.assertEqual(self.store.snapshot()['revision'],0)
+        self.assertEqual(self.store.snapshot()['counts']['on_course'],0)
+        self.assertEqual(len(self.store.snapshot()['progress_boundaries']),1)
     def test_ambiguous_unknown_and_future_reports_are_held(self):
         for text in ['Checkpoint B All but 2 runners #101 and #102',
                      'Checkpoint B Possible duplicate #101 passed at 0942 and again at 0950',
