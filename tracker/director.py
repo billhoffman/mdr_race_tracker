@@ -34,6 +34,8 @@ def initialize(store):
 
 
 def parse(raw, command_id, config, validate):
+    if re.fullmatch(r'START\s+ALL',raw,re.I):
+        return {'id':command_id,'action':'START_ALL','bibs':list(config['runners'])}
     if re.fullmatch(r'UNDO\s+START\s+TIME',raw,re.I):
         return {'id':command_id,'action':'UNDO_START_TIME'}
     if re.match(r'START\s+TIME\b',raw,re.I):
@@ -46,8 +48,8 @@ def parse(raw, command_id, config, validate):
             start=datetime.strptime(config['date']+'T'+clock,pattern).replace(tzinfo=ZoneInfo(config['timezone']))
         except ValueError as exc:raise ValueError('Invalid race start time; use HH:MM[:SS] on the configured race date') from exc
         return {'id':command_id,'action':'START_TIME','start_time':start.isoformat()}
-    match=re.fullmatch(r'(UNDO DNS|UNDO PASS|UNDO FINISH|UNDO WITHDRAW|ADD|REMOVE|DNS|PASS|FINISH|WITHDRAW)\s+([A-Za-z0-9_-]+)\s*(.*)',raw,re.I)
-    if not match:raise ValueError('Use START TIME HH:MM, ADD bib | Name, REMOVE bib, DNS bib, UNDO DNS bib, PASS bib | checkpoint | HH:MM, FINISH bib | HH:MM, or WITHDRAW bib | HH:MM')
+    match=re.fullmatch(r'(UNDO DNS|UNDO PASS|UNDO FINISH|UNDO WITHDRAW|UNDO START|ADD|REMOVE|DNS|START|PASS|FINISH|WITHDRAW)\s+([A-Za-z0-9_-]+)\s*(.*)',raw,re.I)
+    if not match:raise ValueError('Use START ALL, START bib, START TIME HH:MM, ADD bib | Name, REMOVE bib, DNS bib, UNDO DNS bib, PASS bib | checkpoint | HH:MM, FINISH bib | HH:MM, or WITHDRAW bib | HH:MM')
     action,bib,tail=match.groups();action=action.upper()
     values=[part.strip() for part in tail.split('|')[1:]] if tail.startswith('|') else []
     if tail and not tail.startswith('|'):raise ValueError('Separate the command fields with |')
@@ -59,7 +61,7 @@ def parse(raw, command_id, config, validate):
         if old and old['name']!=name:raise ValueError('Bib '+bib+' already belongs to '+old['name']+'; reassignment needs review')
         return {**command,'name':name}
     if bib not in config['runners']:raise ValueError('Unknown bib '+bib+'; add it to the roster or put ADD above this command')
-    if action in {'REMOVE','DNS','UNDO DNS','UNDO FINISH','UNDO WITHDRAW'}:
+    if action in {'REMOVE','DNS','START','UNDO START','UNDO DNS','UNDO FINISH','UNDO WITHDRAW'}:
         if values:raise ValueError(action+' takes only a bib')
         return command
     if action=='UNDO PASS':
@@ -97,6 +99,8 @@ def check_roster_command(store,command):
     # a runner's history intact takes precedence over removing a test entry.
     for row in store.db.execute('SELECT payload FROM revisions'):
         payload=json.loads(row['payload'])
+        if (payload.get('action')=='START' and payload.get('bib')==bib) or (payload.get('action')=='START_ALL' and bib in payload.get('bibs',[])):
+            raise ValueError('Cannot REMOVE a confirmed starter; use DNS or WITHDRAW as appropriate')
         event=payload.get('event',payload)
         if bib in event.get('bibs',[]) and event.get('kind') in {'PASS','FINISH','WITHDRAWN'}:
             raise ValueError('Cannot REMOVE bib '+bib+': it has recorded race observations, including any later voided or overridden reports')
@@ -194,3 +198,13 @@ def select_events(bib,events,settings,anomalies):
             continue
         filtered.append(event)
     return filtered
+
+
+def started_bibs(store):
+    started=set()
+    for row in store.db.execute('SELECT payload FROM director_commands ORDER BY sequence'):
+        command=json.loads(row['payload']);action=command['action']
+        if action=='START_ALL':started.update(command['bibs'])
+        elif action=='START':started.add(command['bib'])
+        elif action in {'REMOVE','UNDO START'}:started.discard(command['bib'])
+    return started

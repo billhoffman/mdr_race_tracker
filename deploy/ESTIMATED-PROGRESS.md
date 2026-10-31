@@ -12,7 +12,9 @@ and run the normal DreamHost publisher once; refresh the page for the new assets
 - Dots fade from green toward amber as time since the last real observation grows.
   A dashed outline indicates progress inferred from an all-runners-passed report.
 - The same estimated dots appear on the elevation profile.
-- Only known on-course runners get estimates. Registrations without a passage,
+- Only known on-course runners get estimates. RD `START ALL` / `START bib`
+  confirms participation and allows start-based estimates without invented passages.
+  Registrations without a passage or start declaration,
   DNS runners, withdrawals and finishers do not get animated estimates.
 
 ## Pace and limits

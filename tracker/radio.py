@@ -6,6 +6,7 @@ from difflib import SequenceMatcher
 import json
 from datetime import datetime
 import re
+from zoneinfo import ZoneInfo
 
 ENVELOPE = 'MDR-RADIO-TABLE-1\n'
 CLOCK = r'(?:[0-2]\d:[0-5]\d(?::[0-5]\d)?|[0-2]\d[0-5]\d)'
@@ -115,6 +116,21 @@ def parse_report(row, config, validate):
     follow the same roster, date, time and checkpoint validation.
     """
     text=row['message']; report=clock_text(row['time'])
+    if re.search(r'\b(?:did not start|DNS)\b',text,re.I):
+        if re.search(r'\?|\b(?:correction|possible|might|may|request)\b',text,re.I):
+            raise ValueError('Uncertain DNS report; review before changing runner status')
+        if re.search(r'\b(?:passed|passing|arrived|finished|dropped)\b',text,re.I):
+            raise ValueError('Mixed DNS and race passage report; review runner identities')
+        bibs=list(dict.fromkeys(re.findall(r'#\s*(\d+)\b',text)))
+        if not bibs:raise ValueError('DNS report needs explicitly marked bib numbers')
+        unknown=[bib for bib in bibs if bib not in config['runners']]
+        if unknown:raise ValueError('Unknown DNS bib(s): '+', '.join(unknown))
+        try:
+            moment=datetime.strptime(config['date']+'T'+report,'%Y-%m-%dT%H:%M:%S' if report.count(':')==2 else '%Y-%m-%dT%H:%M').replace(tzinfo=ZoneInfo(config['timezone']))
+        except ValueError as exc:raise ValueError('Invalid DNS report time') from exc
+        return [{'id':row['id']+'_01','time':moment.isoformat(),'station':None,'kind':'DNS',
+                 'bibs':bibs,'void':False,'report_time':report,'time_basis':'radio report time'}]
+
     text=re.split(r'\band asking for\b',text,flags=re.I)[0]
     if not text:
         raise ValueError('Radio row is incomplete; waiting for its message')

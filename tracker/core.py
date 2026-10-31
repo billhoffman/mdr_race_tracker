@@ -247,6 +247,7 @@ class Store:
             history = [dict(r) for r in self.db.execute('SELECT sequence,id,raw,received FROM revisions ORDER BY sequence DESC LIMIT 12')]
             issues, health = list(self.issues), dict(self.health)
             director_settings=director.controls(self)
+            starters=director.started_bibs(self)
             roster={bib:dict(runner) for bib,runner in self.config['runners'].items()}
             sweeper=sweepers.public_state(self.sweeper)
             start=self.config['start']
@@ -258,6 +259,10 @@ class Store:
             observations.append(event)
         director_ids={e['id'] for e in list(director_settings[1].values())+list(director_settings[2].values()) if e}
         observations=[e for e in observations if e['source']!=director.SOURCE or e['id'] in director_ids]
+        radio_dns={bib for e in observations if e['kind']=='DNS' for bib in e['bibs']}
+        dns={bib:director_settings[0].get(bib,bib in radio_dns) for bib in roster}
+        director_settings=(dns,director_settings[1],director_settings[2])
+        observations=[e for e in observations if e['kind']!='DNS']
         held_rows={issue.get('id') for issue in issues if issue.get('source')=='primary-log'}
         boundaries=[e for e in observations if e['kind'] in {'CLEARANCE','LEADER'}
                     and datetime.fromisoformat(e['time'])>=start and e['id'][:-2] not in held_rows]
@@ -288,8 +293,9 @@ class Store:
                     terminal = event['kind']
             last = accepted[-1] if accepted else None
             position = next((e for e in reversed(accepted) if e['station'] is not None),None)
-            status = 'dns' if director_settings[0].get(bib) else 'finished' if terminal=='FINISH' else 'withdrawn' if terminal else 'on_course' if last else 'not_reported'
-            runners.append({**runner,'bib':bib,'status':status,'last':last,
+            status = 'dns' if director_settings[0].get(bib) else 'finished' if terminal=='FINISH' else 'withdrawn' if terminal else 'on_course' if last or (bib in starters and clock>=start) else 'not_reported'
+            runners.append({**runner,'bib':bib,'status':status,'last':last,'started':bib in starters,
+                'start_confirmed_by':'race_director' if bib in starters else None,
                 'position':position,
                 'distance_m':checkpoint_distance[position['station']] if position else None,
                 'elapsed_seconds':(datetime.fromisoformat(last['time'])-start).total_seconds() if status=='finished' else None,

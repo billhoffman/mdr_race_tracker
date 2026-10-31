@@ -24,8 +24,10 @@
   const result=[];
   for(const row of model.rows){
    const runner=row.runner;
-   if(runner.status!=='on_course'||!runner.position||!Number.isFinite(runner.distance_m)||now<model.start)continue;
-   const confirmedDistance=runner.distance_m,confirmedTime=Date.parse(runner.position.time)/1000;
+   const position=runner.position||(runner.started?{station:'START',time:new Date(model.start*1000).toISOString()}:null);
+   const knownDistance=runner.distance_m??(runner.started?0:null);
+   if(runner.status!=='on_course'||!position||!Number.isFinite(knownDistance)||now<model.start)continue;
+   const confirmedDistance=knownDistance,confirmedTime=Date.parse(position.time)/1000;
    if(now<confirmedTime)continue;
    let distance=confirmedDistance,anchorTime=confirmedTime,boundary=null;
    // An all-passed report can infer progress for a known on-course runner. A
@@ -40,7 +42,7 @@
    const estimated=clamp(distance+speed*age,distance,cap),expected=leg/speed;
    const uncertainty=clamp(Math.max((now-confirmedTime)/Math.max(60,expected*2),boundary?0.55:0),0,1);
    result.push({bib:runner.bib,name:runner.name,distance_m:estimated,coordinates:model.pointAt(estimated),
-    confirmed_distance_m:confirmedDistance,confirmed_time:runner.position.time,confirmed_station:runner.position.station,
+    confirmed_distance_m:confirmedDistance,confirmed_time:position.time,confirmed_station:position.station,
     speed_basis:row.speed?'individual':(model.fieldAvailable?'field':'fallback'),
     uncertainty,inferred:!!boundary,boundary:boundary?{station:boundary.station,time:new Date(boundary.time*1000).toISOString()}:null,
     capped:estimated>=cap-0.01,opacity:0.85-uncertainty*0.5,color:`hsl(${140-uncertainty*105},65%,62%)`});

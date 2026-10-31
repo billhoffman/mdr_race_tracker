@@ -14,6 +14,9 @@ times. These are examples: do not enter fictional observations in the real log.
 
 | Action | Example |
 |---|---|
+| Confirm the current roster started | `START ALL` |
+| Confirm an individual starter | `START 118` |
+| Reverse a start declaration | `UNDO START 118` |
 | Set/correct the actual race start | `START TIME 08:01` |
 | Restore the configured start | `UNDO START TIME` |
 | Add a late entrant | `ADD 118 \| Jane Smith` |
@@ -27,6 +30,17 @@ times. These are examples: do not enter fictional observations in the real log.
 | Remove a director passage override | `UNDO PASS 118 \| G` |
 | Remove a director finish override | `UNDO FINISH 118` |
 | Remove a director withdrawal override | `UNDO WITHDRAW 118` |
+
+Use `START ALL` to confirm the current roster as starters after reconciling DNS.
+The command captures the bibs currently on the roster; future additions need
+`START bib` or an individual passage report. Radio messages explicitly listing
+bibs as "did not start" also set DNS, including pre-start reports. RD `UNDO DNS`
+can reverse a mistaken radio DNS. DNS/withdrawal/finish statuses take precedence.
+
+Start declarations change participation status only. They do not invent individual
+checkpoint passages. In estimated view, declared starters without a passage use
+the race start as their anchor and can use explicit all-runners-passed boundaries.
+Confirmed checkpoint counters still show only individually reported positions.
 
 Use `START TIME 08:01` if the actual start is 8:01 AM rather than the configured
 8:00 AM. Seconds are supported, for example `START TIME 08:01:12`. The command

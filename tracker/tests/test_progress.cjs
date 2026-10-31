@@ -66,3 +66,8 @@ test('sweeper GPS never establishes a clearance floor',()=>{
 test('a future-dated checkpoint does not start estimated movement early',()=>{
  assert.deepEqual(estimates(state([runner('1','A',2000)]),1500),[]);
 });
+test('RD-declared starters use the start anchor and clearance without fake passages',()=>{
+ const r={...runner(),started:true,position:null,distance_m:null,reports:[]};
+ const s=state([r],[{kind:'CLEARANCE',station:'A',time:stamp(1000)}]);
+ const e=estimates(s,1200)[0];assert.equal(e.confirmed_station,'START');assert.equal(e.inferred,true);assert.ok(e.distance_m>1000&&e.distance_m<2000);assert.equal(r.reports.length,0);
+});
