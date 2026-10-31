@@ -72,6 +72,14 @@ class RadioTests(unittest.TestCase):
             ('0955','Checkpoint B All runners passed and sweep has passed. Cleared to secure')))
         self.assertEqual(self.store.snapshot()['counts']['on_course'],0)
         self.assertEqual(len(self.store.snapshot()['progress_boundaries']),1)
+    def test_numbered_sweep_traffic_is_not_a_runner_report(self):
+        for message in ['Checkpoint A Third sweep passed location',
+                        'Checkpoint B Second sweep passed at 1030',
+                        'Checkpoint C First sweep arrived',
+                        'Checkpoint D 3rd sweep passed']:
+            with self.subTest(message=message):
+                self.assertFalse(self.ingest(('1100',message)))
+                self.assertEqual(self.store.snapshot()['revision'],0)
     def test_ambiguous_unknown_and_future_reports_are_held(self):
         for text in ['Checkpoint B All but 2 runners #101 and #102',
                      'Checkpoint B Possible duplicate #101 passed at 0942 and again at 0950',

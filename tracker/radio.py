@@ -131,6 +131,8 @@ def parse_report(row, config, validate):
         return [{'id':row['id']+'_01','time':moment.isoformat(),'station':None,'kind':'DNS',
                  'bibs':bibs,'void':False,'report_time':report,'time_basis':'radio report time'}]
 
+    if re.search(r'\b(?:first|second|third|last|\d+(?:st|nd|rd|th)?)\s+sweeps?\b',text,re.I) and not BIB.search(text):
+        return []
     text=re.split(r'\band asking for\b',text,flags=re.I)[0]
     if not text:
         raise ValueError('Radio row is incomplete; waiting for its message')
